@@ -1,0 +1,12 @@
+[submodule "services/payments"]
+	path = services/payments
+	url = https://github.com/ServEase-Innovations/payments.git
+[submodule "services/preferences"]
+	path = services/preferences
+	url = https://github.com/ServEase-Innovations/preferences.git
+[submodule "services/providers"]
+	path = services/providers
+	url = https://github.com/ServEase-Innovations/providers.git
+[submodule "services/coupons"]
+	path = services/coupons
+	url = https://github.com/ServEase-Innovations/coupons.git
