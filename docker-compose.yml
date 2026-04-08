@@ -1,0 +1,31 @@
+# Optional local databases for microservices (PostgreSQL + MongoDB).
+# Wire connection strings in each service’s `.env` (see `.env.monorepo.example`).
+# Usage: docker compose up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: serveaso
+      POSTGRES_PASSWORD: serveaso
+      POSTGRES_DB: serveaso
+    ports:
+      - "5432:5432"
+    volumes:
+      - serveaso_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U serveaso -d serveaso"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - serveaso_mongo:/data/db
+
+volumes:
+  serveaso_pg:
+  serveaso_mongo:
