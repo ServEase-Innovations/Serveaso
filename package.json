@@ -1,12 +1,12 @@
 {
   "name": "serveaso-be",
   "private": true,
-  "description": "Serveaso backend monorepo — payments, preferences, providers, coupons microservices",
+  "description": "Serveaso backend monorepo — payments, preferences, providers, coupons, utils microservices",
   "workspaces": [
     "services/*"
   ],
   "scripts": {
-    "dev": "concurrently -n payments,prefs,prov,coupons -c blue,magenta,green,yellow \"PORT=4100 npm run dev --workspace=services/payments\" \"PORT=3001 npm run dev --workspace=services/preferences\" \"PORT=4000 npm run dev --workspace=services/providers\" \"PORT=3002 npm run dev --workspace=services/coupons\"",
+    "dev": "concurrently -n payments,prefs,prov,coupons,utils -c blue,magenta,green,yellow,cyan \"PORT=4100 npm run dev --workspace=services/payments\" \"PORT=3001 npm run dev --workspace=services/preferences\" \"PORT=4000 npm run dev --workspace=services/providers\" \"PORT=3002 npm run dev --workspace=services/coupons\" \"PORT=3030 UTILS_EMAIL_PORT=4030 npm run dev --workspace=services/utils\"",
     "dev:payments": "npm run dev --workspace=services/payments",
     "dev:preferences": "npm run dev --workspace=services/preferences",
     "dev:providers": "npm run dev --workspace=services/providers",
@@ -14,7 +14,9 @@
     "start:payments": "npm run prod --workspace=services/payments",
     "start:preferences": "npm run start --workspace=services/preferences",
     "start:providers": "npm run start --workspace=services/providers",
-    "start:coupons": "npm run start --workspace=services/coupons"
+    "start:coupons": "npm run start --workspace=services/coupons",
+    "dev:utils": "npm run dev --workspace=services/utils",
+    "start:utils": "npm run start --workspace=services/utils"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

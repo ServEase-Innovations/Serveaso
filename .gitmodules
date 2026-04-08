@@ -10,3 +10,6 @@
 [submodule "services/coupons"]
 	path = services/coupons
 	url = https://github.com/ServEase-Innovations/coupons.git
+[submodule "services/utils"]
+	path = services/utils
+	url = https://github.com/ServEase-Innovations/utils.git

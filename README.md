@@ -1,6 +1,6 @@
 # Serveaso backend monorepo
 
-One **parent repository** that pins four **Git submodules** under `services/`. Each submodule is a normal Node app with its own `package.json`, history, and deploy story. The root uses **npm workspaces** so you can install and run everything together for local development, or work inside any submodule alone.
+One **parent repository** that pins **Git submodules** under `services/`. Each submodule is a normal Node app with its own `package.json`, history, and deploy story. The root uses **npm workspaces** so you can install and run everything together for local development, or work inside any submodule alone.
 
 | Path | Role | Submodule remote |
 | ---- | ---- | ---------------- |
@@ -8,6 +8,7 @@ One **parent repository** that pins four **Git submodules** under `services/`. E
 | `services/preferences` | User preferences (MongoDB) | [ServEase-Innovations/preferences](https://github.com/ServEase-Innovations/preferences) |
 | `services/providers` | Providers, customers, vendors (PostgreSQL) | [ServEase-Innovations/providers](https://github.com/ServEase-Innovations/providers) |
 | `services/coupons` | Coupons & redemptions (PostgreSQL / Prisma) | [ServEase-Innovations/coupons](https://github.com/ServEase-Innovations/coupons) |
+| `services/utils` | Email helpers, uploads, admin/Mongo utilities, WebSockets | [ServEase-Innovations/utils](https://github.com/ServEase-Innovations/utils) |
 
 ## Clone (with submodules)
 
@@ -52,12 +53,13 @@ Runs installs for every workspace (including submodule packages).
 npm run dev
 ```
 
-| Service | Port in `npm run dev` | Docs (typical) |
-| ------- | --------------------- | -------------- |
+| Service | Port in `npm run dev` | Notes |
+| ------- | --------------------- | ----- |
 | payments | 4100 | `/v1/api-docs`, `/v2/api-docs` |
 | preferences | 3001 | `/api-docs` |
 | providers | 4000 | `/api-docs` |
 | coupons | 3002 | `/api-docs`, `/metrics` |
+| utils | **3030** (main + WebSocket), **4030** (email HTTP app) | Two listeners in one process; see `services/utils/.env.example` |
 
 **One service** from the root:
 
@@ -66,6 +68,7 @@ npm run dev:payments
 npm run dev:preferences
 npm run dev:providers
 npm run dev:coupons
+npm run dev:utils
 ```
 
 **One service without the monorepo** (deploy / CI pattern — only that repo matters):
@@ -87,6 +90,12 @@ Typical options:
 3. **Docker** — Use each service’s own `Dockerfile` when present (e.g. `services/providers`); build context is that submodule directory.
 
 Submodules do **not** force shared releases: you bump the submodule pointer in the parent only when you want the monorepo to record a new combination of versions.
+
+## Scaling **utils** (one submodule today, optional split later)
+
+The [utils](https://github.com/ServEase-Innovations/utils) service runs **two HTTP servers** in one Node process (main app + email routes). For local monorepo runs, **`PORT`** and **`UTILS_EMAIL_PORT`** default to **3030** and **4030** so they do not collide with preferences (3001) or providers (4000).
+
+When you outgrow a single process, split by **creating a new repository** (for example `utils-email`), moving the `appForEmail` stack and its routes into it, and deploying that repo as its own service. Point other apps at it with an env var (for example `UTILS_EMAIL_SERVICE_URL`). You do not need multiple submodules until those repos exist; keep **one** `utils` submodule until the split is real.
 
 ## Environment variables
 
@@ -110,6 +119,7 @@ services/
   preferences/         # submodule → preferences repo
   providers/           # submodule → providers repo
   coupons/             # submodule → coupons repo
+  utils/               # submodule → utils repo
 package.json           # npm workspaces: services/*
 docker-compose.yml     # optional local databases
 ```
