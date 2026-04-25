@@ -1,6 +1,6 @@
-# Serveaso backend monorepo
+# Serveaso monorepo (backend + UI)
 
-One **parent repository** that pins **Git submodules** under `services/`. Each submodule is a normal Node app with its own `package.json`, history, and deploy story. The root uses **npm workspaces** so you can install and run everything together for local development, or work inside any submodule alone.
+This **parent** repository uses **Git submodules** to pin the backend services and the web app. Each submodule keeps its own history, release cadence, and can be developed or deployed on its own.
 
 | Path | Role | Submodule remote |
 | ---- | ---- | ---------------- |
@@ -9,6 +9,31 @@ One **parent repository** that pins **Git submodules** under `services/`. Each s
 | `services/providers` | Providers, customers, vendors (PostgreSQL) | [ServEase-Innovations/providers](https://github.com/ServEase-Innovations/providers) |
 | `services/coupons` | Coupons & redemptions (PostgreSQL / Prisma) | [ServEase-Innovations/coupons](https://github.com/ServEase-Innovations/coupons) |
 | `services/utils` | Email helpers, uploads, admin/Mongo utilities, WebSockets | [ServEase-Innovations/utils](https://github.com/ServEase-Innovations/utils) |
+| `apps/servase-ui` | **React (CRA) + TypeScript** customer UI for Servease | [ServEase-Innovations/ServEase_UI](https://github.com/ServEase-Innovations/ServEase_UI) |
+
+The **root** uses **npm workspaces** only for `services/*`. The UI app has a **separate** `node_modules` under `apps/servase-ui` to avoid clashing with backend dependency hoisting.
+
+## Web UI (ServEase_UI)
+
+```bash
+cd apps/servase-ui
+npm install
+npm start
+# or from repo root:
+npm run dev:ui
+```
+
+- Default dev server: **http://localhost:3000** (per Create React App).
+- Configure API URLs in that project’s **`.env`** / **`.env.qa`** (see the UI repo; do not commit secrets).
+- The UI is **not** required to run the backend microservices.
+
+### Is it a good idea to keep the UI in this repo?
+
+**Reasons to keep it (submodule):** one `git clone --recurse-submodules` gets a **full stack** for onboarding; a single “platform” commit can **pin** API + UI versions for reproducible QA. **Submodules** preserve separate GitHub projects and access control, unlike copying source into one flat tree.
+
+**Reasons to split:** the UI and APIs often **release on different schedules**; CI can get heavier; very large `npm install` in the UI is separate from the backend (which you already have by not using workspaces for `apps/*`).
+
+A common pattern is: **this layout for local / integration work**, and **independent deploy pipelines** per `ServEase_UI` and each API repo in production. Submodules are optional: you can remove the submodule and clone the UI elsewhere if the team prefers two checkouts.
 
 ## Clone (with submodules)
 
@@ -97,6 +122,23 @@ The [utils](https://github.com/ServEase-Innovations/utils) service runs **two HT
 
 When you outgrow a single process, split by **creating a new repository** (for example `utils-email`), moving the `appForEmail` stack and its routes into it, and deploying that repo as its own service. Point other apps at it with an env var (for example `UTILS_EMAIL_SERVICE_URL`). You do not need multiple submodules until those repos exist; keep **one** `utils` submodule until the split is real.
 
+## Observability (metrics, logs, Grafana)
+
+Each submodule can expose **Prometheus** metrics at **`GET /metrics`**, write JSON lines to **`logs/app.log`**, and (optionally) run a local **Docker** stack with **Prometheus + Grafana + Loki + Promtail**.  
+**Prometheus** scrapes **metrics**; **Loki** (via **Promtail**) ingests **logs**; **Grafana** visualizes both.
+
+| Submodule | Metrics job (Prometheus) | Loki / Promtail log label | Grafana (example host port) | Compose / docs |
+|-----------|-------------------------|---------------------------|----------------------------|----------------|
+| **payments** | `payments-app` | `job="payments-app"` | http://localhost:3202 | `docker-compose.monitoring.yml` — [payments README](services/payments/README.md) |
+| **preferences** | `preferences-app` | `job="preferences-app"` | http://localhost:3203 | `docker-compose.monitoring.yml` — [preferences README](services/preferences/README.md) |
+| **providers** | `providers-app` | `job="providers-app"` | http://localhost:3205 (full stack) or 3000 (slim) | `docker-compose.observability-full.yml` — [providers README](services/providers/README.md) |
+| **coupons** | `coupons-api` | `job="coupons-app"` | http://localhost:3001 | `docker-compose.monitoring.yml` — [coupons README](services/coupons/README.md) |
+| **utils** | `utils-app` | `job="utils-app"` | http://localhost:3204 | `docker-compose.monitoring.yml` — [utils README](services/utils/README.md) |
+
+**Port conflicts:** Do not run every stack at once without editing host ports in each `docker-compose*.yml`. Only one process can bind **9090** on the host, etc.
+
+**Scrape targets:** Prometheus in Docker uses **`host.docker.internal`** to reach APIs on your machine. If your monorepo dev ports differ (e.g. payments on **4100**), edit that service’s `monitoring/prometheus/prometheus.yml` (or equivalent) `targets` before `docker compose up`.
+
 ## Environment variables
 
 Each service keeps its own `.env`. See `.env.monorepo.example` for the default port layout when running `npm run dev` from the root.
@@ -114,13 +156,12 @@ docker compose up -d
 
 ```
 .gitmodules            # submodule URLs + paths
+apps/
+  servase-ui/          # submodule → ServEase_UI (React; own package-lock)
 services/
   payments/            # submodule → payments repo
-  preferences/         # submodule → preferences repo
-  providers/           # submodule → providers repo
-  coupons/             # submodule → coupons repo
-  utils/               # submodule → utils repo
-package.json           # npm workspaces: services/*
+  ...
+package.json           # npm workspaces: services/* only
 docker-compose.yml     # optional local databases
 ```
 

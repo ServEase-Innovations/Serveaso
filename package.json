@@ -1,7 +1,7 @@
 {
   "name": "serveaso-be",
   "private": true,
-  "description": "Serveaso backend monorepo — payments, preferences, providers, coupons, utils microservices",
+  "description": "Serveaso monorepo — backend microservices (services/*) + React UI (apps/servase-ui)",
   "workspaces": [
     "services/*"
   ],
@@ -16,7 +16,8 @@
     "start:providers": "npm run start --workspace=services/providers",
     "start:coupons": "npm run start --workspace=services/coupons",
     "dev:utils": "npm run dev --workspace=services/utils",
-    "start:utils": "npm run start --workspace=services/utils"
+    "start:utils": "npm run start --workspace=services/utils",
+    "dev:ui": "npm start --prefix apps/servase-ui"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

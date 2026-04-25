@@ -13,3 +13,6 @@
 [submodule "services/utils"]
 	path = services/utils
 	url = https://github.com/ServEase-Innovations/utils.git
+[submodule "apps/servase-ui"]
+	path = apps/servase-ui
+	url = https://github.com/ServEase-Innovations/ServEase_UI.git
