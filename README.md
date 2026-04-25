@@ -1,5 +1,7 @@
 # Serveaso monorepo (backend + UI)
 
+Official umbrella repository: [ServEase-Innovations/Serveaso](https://github.com/ServEase-Innovations/Serveaso). Licensed under the MIT License — see [LICENSE](LICENSE).
+
 This **parent** repository uses **Git submodules** to pin the backend services and the web app. Each submodule keeps its own history, release cadence, and can be developed or deployed on its own.
 
 | Path | Role | Submodule remote |
