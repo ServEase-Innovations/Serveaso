@@ -70,41 +70,118 @@ flowchart TB
 
 ## Data stores and database design
 
-Each service ships its own **connection string and migrations**. In **local** setups, a single [Docker Compose](docker-compose.yml) can run one **Postgres** (`serveaso`) and one **Mongo**; in **production**, you may use separate clusters per service. The list below is the *logical* design to help new contributors; for exact column definitions, use the **SQL/Prisma** files linked.
+Each service ships its own **connection string and migrations**. In **local** setups, a single [Docker Compose](docker-compose.yml) can run one **Postgres** (`serveaso`) and one **Mongo**; in **production**, you may use separate clusters per service. The list below is the *logical* design; **columns, constraints, and indexes** are in the SQL/Prisma files linked in each subsection.
 
-### PostgreSQL: core business database
+| Store | Typical engine | What it holds |
+| ----- | -------------- | ---------------- |
+| Core + payments domain | **PostgreSQL** | Customers, providers, engagements, wallets, payment rows, notifications, and related tables in [`schema.sql`](services/payments/src/config/db/schema.sql) (plus [patch migrations](services/payments/src/config/db/migrations/)) |
+| Promo (coupons service) | **PostgreSQL** (often same host/DB) | Prisma `coupons` (UUID) + `coupon_redemptions` — [migrations](services/coupons/prisma/migrations/) |
+| Standalone reviews API | **PostgreSQL** (often a separate `DATABASE_URL`) | `ProviderReview` — [Prisma](services/reviews/prisma/schema.prisma) |
+| Preferences + admin utilities | **MongoDB** | Documents for preferences, pricing/records, settings — per service `MONGO_URI` / Mongoose in **utils** |
 
-The **largest, shared** relational model covers **customers**, **service providers (housekeeping / on-demand)**, **engagements** (bookings), **wallets and ledger rows**, **payments and payouts (Razorpay-related fields)**, KYC, attendance, reviews linked to engagement rows, and similar. A canonical **DDL** snapshot and incremental scripts live in the **payments** service:
+### Logical data model (core PostgreSQL, simplified)
 
-- Primary schema: [`services/payments/src/config/db/schema.sql`](services/payments/src/config/db/schema.sql) (tables such as `engagements`, `serviceprovider`, `customer`, `payments`, `payouts`, `wallet_transaction`, and many supporting tables)
-- **In-app / customer notifications** are stored in `in_app_notifications` (see migrations in `services/payments/src/config/db/migrations/`)
-- **Providers** and other Node apps connect with their own `DATABASE_URL` to the *same* database in typical dev, so they can read the same `customer` / `serviceprovider` rows; ownership of routes is by **service**, not a separate database per line of business (unless you split in ops)
+`customer` and `serviceprovider` are the two main parties. Ongoing and historical **bookings** live as **`engagements`**. **On-demand / per-booking** rows (including links to a single `booking_transaction`) are often in **`serviceprovider_engagement`**. **Money in / out** uses **`payments`** (e.g. gateway) and **`payouts`**, and **wallets** + **`wallet_transaction`**. **`in_app_notifications`** stores in-app events; recipients are **polymorphic** (`recipient_type` + `recipient_id`), not a direct FK in the graph below.
 
-Keep `schema.sql` in sync with production expectations when changing shared tables. Services that also use **Prisma** (e.g. **coupons**) add tables via Prisma `migrations/` against the same or another Postgres; see the next subsection.
+```mermaid
+erDiagram
+  customer {
+    bigint customerid PK
+    string emailid UK
+  }
+  serviceprovider {
+    bigint serviceproviderid PK
+  }
+  engagements {
+    bigint engagement_id PK
+    string engagement_status
+  }
+  serviceprovider_engagement {
+    bigint id PK
+  }
+  payments {
+    bigint payment_id PK
+  }
+  payouts {
+    bigint payout_id PK
+  }
+  customer_wallets {
+    bigint wallet_id PK
+  }
+  provider_wallets {
+    bigint wallet_id PK
+  }
+  wallet_transaction {
+    bigint transaction_id PK
+  }
+  provider_reviews {
+    bigint review_id PK
+  }
+  kyc {
+    bigint kyc_id PK
+  }
+  customer ||--o{ engagements : "books"
+  serviceprovider ||--o{ engagements : "serves"
+  serviceprovider ||--o{ kyc : "documents"
+  customer ||--o{ serviceprovider_engagement : "on_demand"
+  serviceprovider ||--o{ serviceprovider_engagement : "on_demand"
+  engagements ||--o{ payments : "charges"
+  engagements ||--o{ payouts : "settlements"
+  customer ||--o{ customer_wallets : "balance"
+  serviceprovider ||--o{ provider_wallets : "balance"
+  customer ||--o{ wallet_transaction : "ledger"
+  customer ||--o{ provider_reviews
+  serviceprovider ||--o{ provider_reviews
+  engagements }o--|| provider_reviews
+```
 
-### PostgreSQL: coupons (promo engine)
+*Also in core Postgres:* `in_app_notifications` (recipients: `recipient_type` + `recipient_id`, not FKs in [migration](services/payments/src/config/db/migrations/in_app_notifications.sql)). **`address`** is referenced from `serviceprovider` for mailing address fields.
 
-The **coupons** microservice uses **Prisma** migrations. It adds **versioned, UUID-based** tables that model promotional coupons and their lifecycle, for example:
+### Table inventory: core `schema.sql`
 
-- `coupons` (promo code metadata, rules)
-- `coupon_redemptions` (reservations, application to engagements, expiry)
+These tables are defined in [`services/payments/src/config/db/schema.sql`](services/payments/src/config/db/schema.sql) (or applied by the same app’s [init / migrations](services/payments/src/config/db/migrations/)). Names are as in the database; some pairs look similar by history (e.g. `wallet_transaction` vs `wallet_transactions`).
 
-The migration files (authoritative) are under [`services/coupons/prisma/migrations/`](services/coupons/prisma/migrations/). There is also a legacy `coupons` table in some older `schema.sql` snapshots; treat **migrations in the coupons repo** as the source of truth for the **new** promotion engine when the service uses the UUID model.
+| Area | Tables |
+| ---- | ------ |
+| **Parties and identity** | `address`, `customer`, `serviceprovider`, `vendor`, `users`, `user_credentials` |
+| **KYC and provider ops** | `kyc`, `kyc_comments`, `leave_balance`, `service_provider_leave` |
+| **Engagements and booking** | `engagements`, `engagement_modifications`, `serviceprovider_engagement`, `booking_transaction`, `provider_availability`, `provider_leaves`, `shortlisted_service_provider` |
+| **Customer-side flows** | `customerrequest`, `customerrequestcomment`, `customer_holidays`, `customer_leaves`, `customerconcern`, `customer_payments` (subscription-style rows), `customer_used_coupons`, `service_provider_used_coupons` |
+| **Provider-side flows** | `serviceproviderrequest`, `service_provider_request_comments`, `service_provider_payment` |
+| **Field operations** | `attendance` |
+| **Care / feedback (legacy rows)** | `service_provider_feedback`, `customerfeedback` |
+| **Wallets and money** | `customer_wallets`, `wallets` (alt naming), `wallet_transaction`, `wallet_transactions`, `payments`, `payouts` |
+| **Provider wallet** | `provider_wallets` |
+| **Reviews (core DB)** | `provider_reviews` (same-name concept as the separate reviews service model; do not assume identical columns without diffing) |
+| **Misc** | `coupons` (legacy `bigint` style in this snapshot), `in_app_notifications` (also in **migration** file below) |
+
+**Applied outside the single `schema.sql` file:** [`in_app_notifications.sql`](services/payments/src/config/db/migrations/in_app_notifications.sql) ensures the in-app table exists and indexes unread rows.
+
+**Providers and others** in dev usually point the same `DATABASE_URL` at this database so they read/write **shared** rows. Route ownership is by service; **data model** is documented here.
+
+### PostgreSQL: coupon promotion engine (Prisma, UUID)
+
+The **coupons** app adds a **separate** coupon model (UUID `coupon_id`, enums, rules) and **`coupon_redemptions`**. Authoritative DDL is in [`services/coupons/prisma/migrations/`](services/coupons/prisma/migrations/). The legacy **`public.coupons`** row in `schema.sql` (different shape) can coexist in old databases; for **new** promo work, use the **Prisma**-managed tables. If you deploy to a **fresh** single database, ensure migration order does not name-collide without a plan.
+
+| Table | Role |
+| ----- | ---- |
+| `coupons` (UUID) | Code, window, `DiscountType` / `ServiceType`, usage limits, city, etc. |
+| `coupon_redemptions` | Reserve / apply / release against `user_id` and optional `engagement_id`, expiry, discount amount, metadata jsonb |
 
 ### PostgreSQL: reviews microservice
 
-The **reviews** app uses a small **Prisma** schema, typically a **dedicated** database connection (`DATABASE_URL`) with a single main table:
+Single primary model, separate connection string is common in production (see [schema](services/reviews/prisma/schema.prisma)):
 
-- `ProviderReview` — `customer_id`, `serviceprovider_id`, optional `engagement_id` / `booking_id`, rating, text, timestamps (see [`services/reviews/prisma/schema.prisma`](services/reviews/prisma/schema.prisma))
-
-You may point this at a separate physical database from the core domain, or a separate schema, depending on deployment.
+| Field (concept) | Use |
+| --------------- | --- |
+| `ProviderReview` | `customer_id`, `serviceprovider_id`, optional `engagement_id` / `booking_id`, `service_type`, `rating`, `review`, `created_at` |
 
 ### MongoDB: documents and utilities
 
-- **Preferences** service — user preference documents (see `MONGO_URI` and `DB_NAME` in that repo; [`services/preferences/config/db.js`](services/preferences/config/db.js) connects with the native driver)
-- **Utils** service — document collections for **pricing/records** imports, user settings, and admin-style flows; connection details are in `services/utils` env (see that repo; **do not** commit production connection strings to Git)
+- **Preferences** — user-scoped JSON documents: [`services/preferences/config/db.js`](services/preferences/config/db.js) (`MONGO_URI`, `DB_NAME`).
+- **Utils** — collections for **pricing/records** (e.g. imports the UI can read on first load), **user settings**, and admin; connection is configured in `services/utils` (never commit real URIs; use env in deployment).
 
-The **UI**’s “initial load” often fetches from **utils** (e.g. public pricing records) while the rest of booking flows go to **payments** / **providers** as needed.
+The **UI**’s “initial load” often hits **utils** (pricing/records) while **booking** and **wallets** use the **Postgres** APIs (payments, providers) as above.
 
 The **root** uses **npm workspaces** only for `services/*`. The UI app has a **separate** `node_modules` under `apps/servase-ui` to avoid clashing with backend dependency hoisting.
 
