@@ -16,6 +16,96 @@ This **parent** repository uses **Git submodules** to pin the backend services a
 | `services/reviews` | Reviews service (TypeScript, Prisma, PostgreSQL) | [ServEase-Innovations/reviews](https://github.com/ServEase-Innovations/reviews) |
 | `apps/servase-ui` | **React (CRA) + TypeScript** customer UI for Servease | [ServEase-Innovations/ServEase_UI](https://github.com/ServEase-Innovations/ServEase_UI) |
 
+## System architecture
+
+**ServEase** is a **monorepo of submodules** (one Git history per app). The **web UI** runs in the browser, authenticates with **Auth0 (OIDC)**, and calls **backends over HTTPS**. **Payments** also exposes a **WebSocket (Socket.IO)** for live updates (e.g. new engagements, in-app events). In local development, the UI targets several localhost ports; see the [Run locally](#run-locally) table. In production, each service is deployed with its own base URL, wired through environment variables.
+
+The diagram is a high-level view; a given deployment may add API gateways, split databases, or host only a subset of services.
+
+```mermaid
+flowchart TB
+  subgraph clients["Client"]
+    B["Browser: ServEase UI (React)"]
+  end
+  A0["Auth0 (OIDC / token exchange)"]
+  P["payments  HTTP + Socket.IO  e.g. 4100"]
+  PR["providers  e.g. 4000"]
+  CF["coupons  e.g. 3002"]
+  PF["preferences  e.g. 3001"]
+  U["utils  e.g. 3030  +  email 4030"]
+  RV["reviews  e.g. 5005"]
+  M["notifications  Mail  outbound  optional"]
+  CH["Chat  MERN  optional"]
+  EXTN["E-mail or SMS  providers  optional"]
+
+  B ---|"login, tokens"| A0
+  B -->|"REST"| P
+  B -->|"REST"| PR
+  B -->|"REST"| CF
+  B -->|"REST"| PF
+  B -->|"REST, optionally WS"| U
+  B -->|"REST"| RV
+  B -.->|"separate  optional  chat UI"| CH
+  P <-->|"WebSocket (events)"| B
+
+  PG[("PostgreSQL\ncore domain, wallets,\nengagements, payments\ntable DDL from payments + providers usage")]
+  MG[("MongoDB\ndocuments, pricing,\nadmin  utils / preferences")]
+  PGRV[("PostgreSQL\n(reviews: ProviderReview)")]
+  CPG[("Coupons: UUID tables\ncoupons + coupon_redemptions\n(Prisma migrations)")]
+  CPG -.- PG
+
+  P --> PG
+  PR --> PG
+  CF --> PG
+  CF --> CPG
+  U --> MG
+  PF --> MG
+  RV --> PGRV
+  M -->|SMTP / API| EXTN
+```
+
+- **Synchronous data:** Most reads/writes are **JSON REST** from the UI to the service that owns the route. Cross-service work is not orchestrated by a BFF; services call the DB or, where implemented, one another.
+- **Real time:** The **payments** app keeps **Socket.IO**; clients and server `join` rooms (e.g. by `customerId` / `providerId`) to receive real-time events that mirror or complement in-app and notification flows.
+- **Third-party (not drawn):** Payment providers (e.g. Razorpay on **payments**), SMS/WhatsApp, maps, and email SMTP live behind individual services when configured in each repo’s env.
+
+## Data stores and database design
+
+Each service ships its own **connection string and migrations**. In **local** setups, a single [Docker Compose](docker-compose.yml) can run one **Postgres** (`serveaso`) and one **Mongo**; in **production**, you may use separate clusters per service. The list below is the *logical* design to help new contributors; for exact column definitions, use the **SQL/Prisma** files linked.
+
+### PostgreSQL: core business database
+
+The **largest, shared** relational model covers **customers**, **service providers (housekeeping / on-demand)**, **engagements** (bookings), **wallets and ledger rows**, **payments and payouts (Razorpay-related fields)**, KYC, attendance, reviews linked to engagement rows, and similar. A canonical **DDL** snapshot and incremental scripts live in the **payments** service:
+
+- Primary schema: [`services/payments/src/config/db/schema.sql`](services/payments/src/config/db/schema.sql) (tables such as `engagements`, `serviceprovider`, `customer`, `payments`, `payouts`, `wallet_transaction`, and many supporting tables)
+- **In-app / customer notifications** are stored in `in_app_notifications` (see migrations in `services/payments/src/config/db/migrations/`)
+- **Providers** and other Node apps connect with their own `DATABASE_URL` to the *same* database in typical dev, so they can read the same `customer` / `serviceprovider` rows; ownership of routes is by **service**, not a separate database per line of business (unless you split in ops)
+
+Keep `schema.sql` in sync with production expectations when changing shared tables. Services that also use **Prisma** (e.g. **coupons**) add tables via Prisma `migrations/` against the same or another Postgres; see the next subsection.
+
+### PostgreSQL: coupons (promo engine)
+
+The **coupons** microservice uses **Prisma** migrations. It adds **versioned, UUID-based** tables that model promotional coupons and their lifecycle, for example:
+
+- `coupons` (promo code metadata, rules)
+- `coupon_redemptions` (reservations, application to engagements, expiry)
+
+The migration files (authoritative) are under [`services/coupons/prisma/migrations/`](services/coupons/prisma/migrations/). There is also a legacy `coupons` table in some older `schema.sql` snapshots; treat **migrations in the coupons repo** as the source of truth for the **new** promotion engine when the service uses the UUID model.
+
+### PostgreSQL: reviews microservice
+
+The **reviews** app uses a small **Prisma** schema, typically a **dedicated** database connection (`DATABASE_URL`) with a single main table:
+
+- `ProviderReview` — `customer_id`, `serviceprovider_id`, optional `engagement_id` / `booking_id`, rating, text, timestamps (see [`services/reviews/prisma/schema.prisma`](services/reviews/prisma/schema.prisma))
+
+You may point this at a separate physical database from the core domain, or a separate schema, depending on deployment.
+
+### MongoDB: documents and utilities
+
+- **Preferences** service — user preference documents (see `MONGO_URI` and `DB_NAME` in that repo; [`services/preferences/config/db.js`](services/preferences/config/db.js) connects with the native driver)
+- **Utils** service — document collections for **pricing/records** imports, user settings, and admin-style flows; connection details are in `services/utils` env (see that repo; **do not** commit production connection strings to Git)
+
+The **UI**’s “initial load” often fetches from **utils** (e.g. public pricing records) while the rest of booking flows go to **payments** / **providers** as needed.
+
 The **root** uses **npm workspaces** only for `services/*`. The UI app has a **separate** `node_modules` under `apps/servase-ui` to avoid clashing with backend dependency hoisting.
 
 ## Web UI (ServEase_UI)
