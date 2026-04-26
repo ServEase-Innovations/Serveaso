@@ -29,7 +29,8 @@ npm run dev:ui
 ```
 
 - Default dev server: **http://localhost:3000** (per Create React App).
-- Configure API URLs in that project’s **`.env`** / **`.env.qa`** (see the UI repo; do not commit secrets).
+- For **local + monorepo backends**, copy `apps/servase-ui/.env.local.example` to `apps/servase-ui/.env.local` (defaults match `npm run dev` ports; see `src/config/urls.ts`).
+- For **QA / production**, use that project’s **`.env.qa`** / deployment env (do not commit secrets).
 - The UI is **not** required to run the backend microservices.
 
 ### Is it a good idea to keep the UI in this repo?
@@ -81,15 +82,18 @@ Runs installs for every workspace (including submodule packages).
 
 ```bash
 npm run dev
+# alias:
+npm run dev:all
 ```
 
 | Service | Port in `npm run dev` | Notes |
 | ------- | --------------------- | ----- |
-| payments | 4100 | `/v1/api-docs`, `/v2/api-docs` |
+| payments | 4100 | HTTP + **Socket.IO**; `/v1/api-docs`, `/v2/api-docs` |
 | preferences | 3001 | `/api-docs` |
 | providers | 4000 | `/api-docs` |
 | coupons | 3002 | `/api-docs`, `/metrics` |
 | utils | **3030** (main + WebSocket), **4030** (email HTTP app) | Two listeners in one process; see `services/utils/.env.example` |
+| reviews | 5005 | Set `PORT` in script to avoid clashing with CRA (3000) |
 
 **One service** from the root:
 
@@ -99,7 +103,30 @@ npm run dev:preferences
 npm run dev:providers
 npm run dev:coupons
 npm run dev:utils
+npm run dev:reviews
 ```
+
+### Web UI (points APIs at the ports above)
+
+From the repo root:
+
+```bash
+cp apps/servase-ui/.env.local.example apps/servase-ui/.env.local
+# edit if your ports differ, then:
+npm run dev:ui
+```
+
+`apps/servase-ui/src/config/urls.ts` defaults to the same localhost ports as this table. Override with `REACT_APP_*` variables in `.env.local` (see the example file).
+
+### Troubleshooting (`npm run dev`)
+
+| Symptom | What to do |
+| --------|------------|
+| **`preferences` crashes** with `Cannot read properties of undefined (reading 'startsWith')` (or Mongo connect errors) | The preferences service needs **`MONGO_URI`** in **`services/preferences/.env`** (Mongo connection string, e.g. `mongodb://localhost:27017` if you use the repo’s optional `docker compose` Mongo). Optionally set **`DB_NAME`**. The server calls `new MongoClient(process.env.MONGO_URI)`; if `MONGO_URI` is empty, the driver throws. |
+| **`reviews` failed** with `ts-node-dev: command not found` | Fixed in the **reviews** submodule: dev uses **`tsx`**. From the monorepo root run **`npm install`**, then **`npm run dev`** again. The script sets **`PORT=5005`**. If you run the reviews app alone without `PORT`, the default is **5005** to avoid clashing with the React app on 3000. |
+| **`payments` logs** `constraint ... for relation "..." already exists` / schema apply errors on startup | Usually harmless if the API is already up: **`initDB`** re-runs SQL against an existing database. You can ignore the message if `payments_api_started` and `http://localhost:4100` work. A proper fix is idempotent migrations (separate work). |
+| **Port already in use** (EADDRINUSE) | Each service in the `npm run dev` table uses a fixed port. Stop the other process using that port, or change the **`PORT=...`** prefix in **`package.json`** and match **`apps/servase-ui/.env.local`** to the new URL. |
+| **`/api-docs` on preferences (3001) returns JSON 401** with `messageId: auth.unauthorized` | The preferences app does **not** return that. Run `curl -sI http://localhost:3001/_whoami` — you should see **`X-ServeEaso-Service: preferences`**. If not, another process is on 3001 or traffic is not reaching Node; use `lsof -i :3001` and see [services/preferences/README.md](services/preferences/README.md#swagger--docs-return-401-json-with-authunauthorized). |
 
 **One service without the monorepo** (deploy / CI pattern — only that repo matters):
 
@@ -137,7 +164,7 @@ Each submodule can expose **Prometheus** metrics at **`GET /metrics`**, write JS
 | **payments** | `payments-app` | `job="payments-app"` | http://localhost:3202 | `docker-compose.monitoring.yml` — [payments README](services/payments/README.md) |
 | **preferences** | `preferences-app` | `job="preferences-app"` | http://localhost:3203 | `docker-compose.monitoring.yml` — [preferences README](services/preferences/README.md) |
 | **providers** | `providers-app` | `job="providers-app"` | http://localhost:3205 (full stack) or 3000 (slim) | `docker-compose.observability-full.yml` — [providers README](services/providers/README.md) |
-| **coupons** | `coupons-api` | `job="coupons-app"` | http://localhost:3001 | `docker-compose.monitoring.yml` — [coupons README](services/coupons/README.md) |
+| **coupons** | `coupons-api` | `job="coupons-app"` | http://localhost:3101 | `docker-compose.monitoring.yml` — [coupons README](services/coupons/README.md) |
 | **utils** | `utils-app` | `job="utils-app"` | http://localhost:3204 | `docker-compose.monitoring.yml` — [utils README](services/utils/README.md) |
 
 **Port conflicts:** Do not run every stack at once without editing host ports in each `docker-compose*.yml`. Only one process can bind **9090** on the host, etc.

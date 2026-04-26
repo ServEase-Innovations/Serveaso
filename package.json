@@ -6,7 +6,8 @@
     "services/*"
   ],
   "scripts": {
-    "dev": "concurrently -n payments,prefs,prov,coupons,utils -c blue,magenta,green,yellow,cyan \"PORT=4100 npm run dev --workspace=services/payments\" \"PORT=3001 npm run dev --workspace=services/preferences\" \"PORT=4000 npm run dev --workspace=services/providers\" \"PORT=3002 npm run dev --workspace=services/coupons\" \"PORT=3030 UTILS_EMAIL_PORT=4030 npm run dev --workspace=services/utils\"",
+    "dev": "concurrently -n pay,pref,prov,coupons,utils,rev -c blue,magenta,green,yellow,cyan,red \"PORT=4100 npm run dev --workspace=services/payments\" \"PORT=3001 npm run dev --workspace=services/preferences\" \"PORT=4000 npm run dev --workspace=services/providers\" \"PORT=3002 npm run dev --workspace=services/coupons\" \"PORT=3030 UTILS_EMAIL_PORT=4030 npm run dev --workspace=services/utils\" \"PORT=5005 npm run dev --workspace=services/reviews\"",
+    "dev:all": "npm run dev",
     "dev:payments": "npm run dev --workspace=services/payments",
     "dev:preferences": "npm run dev --workspace=services/preferences",
     "dev:providers": "npm run dev --workspace=services/providers",
@@ -17,6 +18,7 @@
     "start:coupons": "npm run start --workspace=services/coupons",
     "dev:utils": "npm run dev --workspace=services/utils",
     "start:utils": "npm run start --workspace=services/utils",
+    "dev:reviews": "PORT=5005 npm run dev --workspace=services/reviews",
     "dev:ui": "npm start --prefix apps/servase-ui"
   },
   "devDependencies": {
