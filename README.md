@@ -130,9 +130,9 @@ erDiagram
   customer ||--o{ customer_wallets : "balance"
   serviceprovider ||--o{ provider_wallets : "balance"
   customer ||--o{ wallet_transaction : "ledger"
-  customer ||--o{ provider_reviews
-  serviceprovider ||--o{ provider_reviews
-  engagements }o--|| provider_reviews
+  customer ||--o{ provider_reviews : "reviewer"
+  serviceprovider ||--o{ provider_reviews : "subject"
+  engagements }o--|| provider_reviews : "per_engagement"
 ```
 
 *Also in core Postgres:* `in_app_notifications` (recipients: `recipient_type` + `recipient_id`, not FKs in [migration](services/payments/src/config/db/migrations/in_app_notifications.sql)). **`address`** is referenced from `serviceprovider` for mailing address fields.
