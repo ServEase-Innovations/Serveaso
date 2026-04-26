@@ -79,31 +79,144 @@ Each service ships its own **connection string and migrations**. In **local** se
 | Standalone reviews API | **PostgreSQL** (often a separate `DATABASE_URL`) | `ProviderReview` — [Prisma](services/reviews/prisma/schema.prisma) |
 | Preferences + admin utilities | **MongoDB** | Documents for preferences, pricing/records, settings — per service `MONGO_URI` / Mongoose in **utils** |
 
-### Logical data model (core PostgreSQL, simplified)
+### Entity-relationship diagrams (ERD)
 
-`customer` and `serviceprovider` are the two main parties. Ongoing and historical **bookings** live as **`engagements`**. **On-demand / per-booking** rows (including links to a single `booking_transaction`) are often in **`serviceprovider_engagement`**. **Money in / out** uses **`payments`** (e.g. gateway) and **`payouts`**, and **wallets** + **`wallet_transaction`**. **`in_app_notifications`** stores in-app events; recipients are **polymorphic** (`recipient_type` + `recipient_id`), not a direct FK in the graph below.
+**How to read this section**
+
+- Each diagram is **Mermaid**; GitHub renders it. If you edit locally, [validate syntax](https://mermaid.js.org/syntax/entityRelationshipDiagram.html).
+- **Tables** are shown with a few key columns. Full definitions are in the linked SQL/Prisma files.
+- The **same PostgreSQL** often holds *two* booking “tracks”:
+  - **`engagements`**: longer or structured contracts (e.g. monthly) — see FKs in [`schema.sql`](services/payments/src/config/db/schema.sql) `REFERENCES public.engagements`.
+  - **`serviceprovider_engagement`**: on-demand or legacy per-row bookings — e.g. **`booking_transaction.engagement_id` → `serviceprovider_engagement.id`**, not to `engagements.engagement_id` (see `fkkivwnnxvqx05mibfdqqlwjtxl` in the schema file).
+- **`in_app_notifications`** has **no polymorphic foreign key** in the migration; the app matches `recipient_id` to `customer` or `serviceprovider` by `recipient_type`.
+- **Vendor / users / `user_credentials`** are real tables; cross-links may be app-level. See the **Table inventory** subsection that follows the diagrams.
+
+#### 1) Domain map (read this first)
+
+```mermaid
+flowchart TB
+  c[customer]
+  sp[serviceprovider]
+  e[engagements]
+  se[serviceprovider_engagement]
+  rv[provider_reviews]
+  bt[booking_transaction]
+  c -->|0..N| e
+  sp -->|0..N| e
+  c -->|0..N| se
+  sp -->|0..N| se
+  e -->|0..N charges| pmt[payments]
+  se -->|0..1| bt
+  bt -->|FK spe.id| se
+  e -->|0..1 XOR| rv
+  se -->|0..1 XOR| rv
+```
+
+*A single `provider_reviews` row links to **either** an `engagements` row **or** a `serviceprovider_engagement` row, enforced by a database CHECK; see ERD 5.*
+
+#### 2) ERD: identity, addresses, KYC
+
+`serviceprovider` can reference **`address` twice** (correspondence vs permanent), modeled below as two nodes that both represent the same `address` table (two FKs).
+
+```mermaid
+erDiagram
+  address_corr {
+    bigint id PK
+  }
+  address_perm {
+    bigint id PK
+  }
+  customer {
+    bigint customerid PK
+    varchar emailid UK
+  }
+  serviceprovider {
+    bigint serviceproviderid PK
+  }
+  kyc {
+    bigint kyc_id PK
+    varchar kyc_type_id UK
+  }
+  kyc_comments {
+    bigint id PK
+  }
+  serviceprovider }o--|| address_corr : "correspondence_address_id"
+  serviceprovider }o--|| address_perm : "permanent_address_id"
+  serviceprovider ||--o{ kyc : "provider_kyc"
+  kyc ||--o{ kyc_comments : "thread"
+```
+
+*No direct `customer` ↔ `serviceprovider` row in the identity diagram — they are linked in **booking and review** tables (see ERD 3 and 5).*
+
+#### 3) ERD: bookings, attendance, calendar rows
 
 ```mermaid
 erDiagram
   customer {
     bigint customerid PK
-    string emailid UK
   }
   serviceprovider {
     bigint serviceproviderid PK
   }
   engagements {
     bigint engagement_id PK
-    string engagement_status
   }
   serviceprovider_engagement {
     bigint id PK
   }
-  payments {
-    bigint payment_id PK
+  engagement_modifications {
+    bigint modification_id PK
   }
-  payouts {
-    bigint payout_id PK
+  customer_leaves {
+    bigint leave_id PK
+  }
+  booking_transaction {
+    bigint id PK
+  }
+  customer_holidays {
+    bigint id PK
+  }
+  attendance {
+    bigint id PK
+  }
+  provider_availability {
+    bigint id PK
+  }
+  provider_leaves {
+    bigint leave_id PK
+  }
+  customer ||--o{ engagements : "as_customer"
+  serviceprovider ||--o{ engagements : "as_provider"
+  customer ||--o{ serviceprovider_engagement : "as_customer"
+  serviceprovider ||--o{ serviceprovider_engagement : "as_provider"
+  engagements ||--o{ engagement_modifications : "history"
+  customer ||--o{ customer_leaves : "leaves"
+  customer_leaves }o--|| engagements : "engagement_fk"
+  serviceprovider ||--o{ provider_availability : "slots"
+  serviceprovider ||--o{ provider_leaves : "leave_rows"
+  provider_availability }o--|| engagements : "optional_tie"
+  provider_leaves }o--|| engagements : "optional_tie"
+  serviceprovider_engagement ||--o{ customer_holidays : "holidays"
+  customer }o--o{ customer_holidays : "customer_fk"
+  serviceprovider_engagement }o--|| booking_transaction : "0..1_txn"
+  customer }o--o{ attendance : "attend"
+  serviceprovider }o--o{ attendance : "attend"
+```
+
+#### 4) ERD: wallets and platform money movement
+
+`wallet_transaction` and `wallet_transactions` are two tables in the same schema (historical naming). Use live code to see which path is used for new money.
+
+```mermaid
+erDiagram
+  customer {
+    bigint customerid PK
+  }
+  serviceprovider {
+    bigint serviceproviderid PK
+  }
+  engagements {
+    bigint engagement_id PK
   }
   customer_wallets {
     bigint wallet_id PK
@@ -114,28 +227,98 @@ erDiagram
   wallet_transaction {
     bigint transaction_id PK
   }
-  provider_reviews {
-    bigint review_id PK
+  payments {
+    bigint payment_id PK
   }
-  kyc {
-    bigint kyc_id PK
+  payouts {
+    bigint payout_id PK
   }
-  customer ||--o{ engagements : "books"
-  serviceprovider ||--o{ engagements : "serves"
-  serviceprovider ||--o{ kyc : "documents"
-  customer ||--o{ serviceprovider_engagement : "on_demand"
-  serviceprovider ||--o{ serviceprovider_engagement : "on_demand"
-  engagements ||--o{ payments : "charges"
-  engagements ||--o{ payouts : "settlements"
-  customer ||--o{ customer_wallets : "balance"
-  serviceprovider ||--o{ provider_wallets : "balance"
-  customer ||--o{ wallet_transaction : "ledger"
-  customer ||--o{ provider_reviews : "reviewer"
-  serviceprovider ||--o{ provider_reviews : "subject"
-  engagements }o--|| provider_reviews : "per_engagement"
+  customer }o--|| customer_wallets : "one_per_customer"
+  serviceprovider }o--|| provider_wallets : "one_per_spe"
+  customer }o--o{ wallet_transaction : "debits_credits"
+  customer_wallets }o--o{ wallet_transaction : "wallet_fk"
+  wallet_transaction }o--|| engagements : "optional_ledger"
+  engagements ||--o{ payments : "gateway_charges"
+  serviceprovider }o--o{ payouts : "payouts_to_spe"
+  engagements }o--o{ payouts : "optional_engage_tie"
 ```
 
-*Also in core Postgres:* `in_app_notifications` (recipients: `recipient_type` + `recipient_id`, not FKs in [migration](services/payments/src/config/db/migrations/in_app_notifications.sql)). **`address`** is referenced from `serviceprovider` for mailing address fields.
+#### 5) ERD: `provider_reviews` (mutually exclusive booking link)
+
+**Rule:** `serviceprovider_engagement_id` **XOR** `engagement_id` (exactly one) — `one_experience_only` in the DDL.
+
+```mermaid
+erDiagram
+  customer {
+    bigint customerid PK
+  }
+  serviceprovider {
+    bigint serviceproviderid PK
+  }
+  engagements {
+    bigint engagement_id PK
+  }
+  serviceprovider_engagement {
+    bigint id PK
+  }
+  provider_reviews {
+    bigint review_id PK
+    int rating
+  }
+  customer ||--o{ provider_reviews : "author"
+  serviceprovider ||--o{ provider_reviews : "target"
+  provider_reviews }o--o| serviceprovider_engagement : "XOR_A_on_demand"
+  provider_reviews }o--o| engagements : "XOR_B_subscr_short"
+```
+
+#### 6) In-app notifications (polymorphic, no `FOREIGN KEY` in migration)
+
+```mermaid
+flowchart LR
+  N[("in_app_notifications\n(recipient_type, recipient_id)")]
+  N -->|customer| C[("Map recipient_id to\ncustomer.customerid")]
+  N -->|provider| P[("Map recipient_id to\nserviceprovider.serviceproviderid")]
+  N -->|optional| E[("engagement_id")]
+```
+
+See [`in_app_notifications.sql`](services/payments/src/config/db/migrations/in_app_notifications.sql).
+
+#### 7) ERD: promo `coupons` (Prisma, UUID) + `coupon_redemptions`
+
+*Different from* the legacy `coupons` (bigint) row in the old `schema.sql` dump.
+
+```mermaid
+erDiagram
+  PRISMA_COUPON {
+    uuid coupon_id PK
+  }
+  PRISMA_COUPON_REDEMPTIONS {
+    uuid redemption_id PK
+  }
+  PRISMA_COUPON ||--o{ PRISMA_COUPON_REDEMPTIONS : "uses"
+```
+
+Authoritative: [`services/coupons/prisma/migrations/`](services/coupons/prisma/migrations/).
+
+#### 8) ERD: microservice `ProviderReview` (separate `DATABASE_URL` in many envs)
+
+```mermaid
+erDiagram
+  ProviderReview {
+    uuid id PK
+    varchar customer_id
+    varchar serviceprovider_id
+    int rating
+    varchar review
+  }
+```
+
+See [`services/reviews/prisma/schema.prisma`](services/reviews/prisma/schema.prisma).
+
+#### 9) MongoDB (not relational ERD in Postgres sense)
+
+- **Preferences:** documents keyed for user-specific settings; connection in [`services/preferences/config/db.js`](services/preferences/config/db.js).
+- **Utils:** document collections (e.g. **pricing/records** for the UI, admin, uploads); not drawn here.
 
 ### Table inventory: core `schema.sql`
 
