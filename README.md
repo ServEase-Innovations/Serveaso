@@ -11,6 +11,9 @@ This **parent** repository uses **Git submodules** to pin the backend services a
 | `services/providers` | Providers, customers, vendors (PostgreSQL) | [ServEase-Innovations/providers](https://github.com/ServEase-Innovations/providers) |
 | `services/coupons` | Coupons & redemptions (PostgreSQL / Prisma) | [ServEase-Innovations/coupons](https://github.com/ServEase-Innovations/coupons) |
 | `services/utils` | Email helpers, uploads, admin/Mongo utilities, WebSockets | [ServEase-Innovations/utils](https://github.com/ServEase-Innovations/utils) |
+| `services/notifications` | Mail / notification sending (code under `Mail/`) | [ServEase-Innovations/notifications](https://github.com/ServEase-Innovations/notifications) |
+| `services/chat` | Real-time chat (MERN: `backend/`, `frontend/`) | [ServEase-Innovations/chat](https://github.com/ServEase-Innovations/chat) |
+| `services/reviews` | Reviews service (TypeScript, Prisma, PostgreSQL) | [ServEase-Innovations/reviews](https://github.com/ServEase-Innovations/reviews) |
 | `apps/servase-ui` | **React (CRA) + TypeScript** customer UI for Servease | [ServEase-Innovations/ServEase_UI](https://github.com/ServEase-Innovations/ServEase_UI) |
 
 The **root** uses **npm workspaces** only for `services/*`. The UI app has a **separate** `node_modules` under `apps/servase-ui` to avoid clashing with backend dependency hoisting.

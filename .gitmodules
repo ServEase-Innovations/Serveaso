@@ -16,3 +16,12 @@
 [submodule "apps/servase-ui"]
 	path = apps/servase-ui
 	url = https://github.com/ServEase-Innovations/ServEase_UI.git
+[submodule "services/notifications"]
+	path = services/notifications
+	url = https://github.com/ServEase-Innovations/notifications.git
+[submodule "services/chat"]
+	path = services/chat
+	url = https://github.com/ServEase-Innovations/chat.git
+[submodule "services/reviews"]
+	path = services/reviews
+	url = https://github.com/ServEase-Innovations/reviews.git
