@@ -3,7 +3,7 @@ import {
     deleteImageFromCloudinary
 } from "../service/cloudinary.js";
 
-import Image from '../models/Image.js';
+import Image from '../models/image.js';
 
 export const uploadImageController = async (req, res) => {
     try {
