@@ -78,6 +78,18 @@ Each service ships its own **connection string and migrations**. In **local** se
 | Promo (coupons service) | **PostgreSQL** (often same host/DB) | Prisma `coupons` (UUID) + `coupon_redemptions` — [migrations](services/coupons/prisma/migrations/) |
 | Standalone reviews API | **PostgreSQL** (often a separate `DATABASE_URL`) | `ProviderReview` — [Prisma](services/reviews/prisma/schema.prisma) |
 | Preferences + admin utilities | **MongoDB** | Documents for preferences, pricing/records, settings — per service `MONGO_URI` / Mongoose in **utils** |
+| FCM device tokens (push) | **MongoDB** | Collection **`devicetokens`** in **utils** — see [FCM setup](services/utils/README.md#firebase-cloud-messaging-fcm) |
+
+### Push notifications (FCM)
+
+Mobile push and admin broadcast are implemented in the **utils** submodule:
+
+- **Register tokens:** `POST /api/push/register` (iOS/Android app after login).
+- **Send (admin):** `POST /api/push/send` with `X-Admin-Push-Secret`.
+- **Storage:** MongoDB `devicetokens` (Mongoose `DeviceToken` model).
+- **Delivery:** Firebase Admin SDK (`firebase-admin`).
+
+Full setup (Firebase project, service account, env vars, API reference, mobile + admin UI): **[`services/utils/README.md` → Firebase Cloud Messaging](services/utils/README.md#firebase-cloud-messaging-fcm)**.
 
 ### Entity-relationship diagrams (ERD)
 
