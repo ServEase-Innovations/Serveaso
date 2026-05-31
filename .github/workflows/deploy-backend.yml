@@ -1,0 +1,228 @@
+# Deploy Serveaso backend microservices.
+# - dev  → Render (deploy hooks)
+# - prod → EC2 (versioned releases + pm2 / Docker)
+#
+# Required secrets: see docs/DEPLOYMENT.md
+
+name: Deploy Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      service:
+        description: Service to deploy (all = every backend in services.json)
+        required: true
+        type: choice
+        options:
+          - all
+          - payments
+          - providers
+          - coupons
+          - preferences
+          - utils
+          - reviews
+          - image-uploader
+          - chat
+
+concurrency:
+  group: deploy-backend-${{ inputs.environment }}-${{ inputs.service }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  BUILD_VERSION: ${{ github.sha }}-${{ github.run_number }}
+
+jobs:
+  resolve-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.resolve.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: resolve
+        run: |
+          if [[ "${{ inputs.service }}" == "all" ]]; then
+            SERVICES=$(jq -c 'keys' .github/deploy/services.json)
+          else
+            SERVICES=$(jq -c --arg s "${{ inputs.service }}" '[$s]' .github/deploy/services.json)
+          fi
+          echo "services=${SERVICES}" >> "$GITHUB_OUTPUT"
+          echo "Deploying: ${SERVICES} to ${{ inputs.environment }}"
+
+  deploy:
+    needs: resolve-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        service: ${{ fromJson(needs.resolve-matrix.outputs.services) }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Load service config
+        id: cfg
+        run: |
+          SVC="${{ matrix.service }}"
+          jq -r --arg s "$SVC" '.[$s]' .github/deploy/services.json > service.json
+          echo "label=$(jq -r '.label' service.json)" >> "$GITHUB_OUTPUT"
+          echo "path=$(jq -r '.path' service.json)" >> "$GITHUB_OUTPUT"
+          echo "ec2_app=$(jq -r '.ec2_app' service.json)" >> "$GITHUB_OUTPUT"
+          echo "docker=$(jq -r '.docker // false' service.json)" >> "$GITHUB_OUTPUT"
+          echo "install=$(jq -r '.install // "npm ci --omit=dev"' service.json)" >> "$GITHUB_OUTPUT"
+          echo "pm2_script=$(jq -r '.pm2_script // ""' service.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Render (dev)
+        if: inputs.environment == 'dev'
+        env:
+          RENDER_HOOK_PAYMENTS: ${{ secrets.RENDER_DEPLOY_HOOK_PAYMENTS }}
+          RENDER_HOOK_PROVIDERS: ${{ secrets.RENDER_DEPLOY_HOOK_PROVIDERS }}
+          RENDER_HOOK_COUPONS: ${{ secrets.RENDER_DEPLOY_HOOK_COUPONS }}
+          RENDER_HOOK_PREFERENCES: ${{ secrets.RENDER_DEPLOY_HOOK_PREFERENCES }}
+          RENDER_HOOK_UTILS: ${{ secrets.RENDER_DEPLOY_HOOK_UTILS }}
+          RENDER_HOOK_REVIEWS: ${{ secrets.RENDER_DEPLOY_HOOK_REVIEWS }}
+          RENDER_HOOK_IMAGE_UPLOADER: ${{ secrets.RENDER_DEPLOY_HOOK_IMAGE_UPLOADER }}
+          RENDER_HOOK_CHAT: ${{ secrets.RENDER_DEPLOY_HOOK_CHAT }}
+        run: |
+          chmod +x .github/scripts/render-deploy.sh
+          case "${{ matrix.service }}" in
+            payments)       HOOK="${RENDER_HOOK_PAYMENTS}" ;;
+            providers)      HOOK="${RENDER_HOOK_PROVIDERS}" ;;
+            coupons)        HOOK="${RENDER_HOOK_COUPONS}" ;;
+            preferences)    HOOK="${RENDER_HOOK_PREFERENCES}" ;;
+            utils)          HOOK="${RENDER_HOOK_UTILS}" ;;
+            reviews)        HOOK="${RENDER_HOOK_REVIEWS}" ;;
+            image-uploader) HOOK="${RENDER_HOOK_IMAGE_UPLOADER}" ;;
+            chat)           HOOK="${RENDER_HOOK_CHAT}" ;;
+            *) echo "Unknown service"; exit 1 ;;
+          esac
+          if [[ -z "${HOOK}" ]]; then
+            echo "::error::Missing Render deploy hook secret for ${{ matrix.service }}. See docs/DEPLOYMENT.md"
+            exit 1
+          fi
+          .github/scripts/render-deploy.sh "${HOOK}"
+
+      - name: Write prod env file
+        if: inputs.environment == 'prod'
+        run: |
+          case "${{ matrix.service }}" in
+            payments)
+              printf '%s' "${{ secrets.PROD_ENV_PAYMENTS }}" > /tmp/service.env
+              ;;
+            providers)
+              printf '%s' "${{ secrets.PROD_ENV_PROVIDERS }}" > /tmp/service.env
+              ;;
+            coupons)
+              printf '%s' "${{ secrets.PROD_ENV_COUPONS }}" > /tmp/service.env
+              ;;
+            preferences)
+              printf '%s' "${{ secrets.PROD_ENV_PREFERENCES }}" > /tmp/service.env
+              ;;
+            utils)
+              printf '%s' "${{ secrets.PROD_ENV_UTILS }}" > /tmp/service.env
+              ;;
+            reviews)
+              printf '%s' "${{ secrets.PROD_ENV_REVIEWS }}" > /tmp/service.env
+              ;;
+            image-uploader)
+              printf '%s' "${{ secrets.PROD_ENV_IMAGE_UPLOADER }}" > /tmp/service.env
+              ;;
+            chat)
+              printf '%s' "${{ secrets.PROD_ENV_CHAT }}" > /tmp/service.env
+              ;;
+          esac
+          if [[ ! -s /tmp/service.env ]]; then
+            rm -f /tmp/service.env
+            echo "::warning::PROD_ENV_* secret empty for ${{ matrix.service }} — deploy continues without overwriting .env"
+          fi
+
+      - name: Resolve EC2 deploy path
+        if: inputs.environment == 'prod'
+        id: ec2path
+        env:
+          EC2_DEPLOY_PATH_PAYMENTS: ${{ secrets.EC2_DEPLOY_PATH_PAYMENTS }}
+          EC2_DEPLOY_PATH_PROVIDERS: ${{ secrets.EC2_DEPLOY_PATH_PROVIDERS }}
+          EC2_DEPLOY_PATH_COUPONS: ${{ secrets.EC2_DEPLOY_PATH_COUPONS }}
+          EC2_DEPLOY_PATH_PREFERENCES: ${{ secrets.EC2_DEPLOY_PATH_PREFERENCES }}
+          EC2_DEPLOY_PATH_UTILS: ${{ secrets.EC2_DEPLOY_PATH_UTILS }}
+          EC2_DEPLOY_PATH_REVIEWS: ${{ secrets.EC2_DEPLOY_PATH_REVIEWS }}
+          EC2_DEPLOY_PATH_IMAGE_UPLOADER: ${{ secrets.EC2_DEPLOY_PATH_IMAGE_UPLOADER }}
+          EC2_DEPLOY_PATH_CHAT: ${{ secrets.EC2_DEPLOY_PATH_CHAT }}
+        run: |
+          default_path() {
+            case "${{ matrix.service }}" in
+              payments)       echo "/home/ubuntu/payments" ;;
+              providers)      echo "/home/ubuntu/providers" ;;
+              coupons)        echo "/home/ubuntu/coupons" ;;
+              preferences)    echo "/home/ubuntu/preferences" ;;
+              utils)          echo "/home/ubuntu/utils" ;;
+              reviews)        echo "/home/ubuntu/reviews" ;;
+              image-uploader) echo "/home/ubuntu/image-uploader" ;;
+              chat)           echo "/home/ubuntu/chat" ;;
+            esac
+          }
+          case "${{ matrix.service }}" in
+            payments)       PATH="${EC2_DEPLOY_PATH_PAYMENTS:-$(default_path)}" ;;
+            providers)      PATH="${EC2_DEPLOY_PATH_PROVIDERS:-$(default_path)}" ;;
+            coupons)        PATH="${EC2_DEPLOY_PATH_COUPONS:-$(default_path)}" ;;
+            preferences)    PATH="${EC2_DEPLOY_PATH_PREFERENCES:-$(default_path)}" ;;
+            utils)          PATH="${EC2_DEPLOY_PATH_UTILS:-$(default_path)}" ;;
+            reviews)        PATH="${EC2_DEPLOY_PATH_REVIEWS:-$(default_path)}" ;;
+            image-uploader) PATH="${EC2_DEPLOY_PATH_IMAGE_UPLOADER:-$(default_path)}" ;;
+            chat)           PATH="${EC2_DEPLOY_PATH_CHAT:-$(default_path)}" ;;
+          esac
+          echo "path=${PATH}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to EC2 (providers / Docker)
+        if: inputs.environment == 'prod' && steps.cfg.outputs.docker == 'true'
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SERVICE_PATH: ${{ steps.cfg.outputs.path }}
+          DEPLOY_ROOT: ${{ steps.ec2path.outputs.path }}
+          BUILD_VERSION: ${{ env.BUILD_VERSION }}
+        run: |
+          chmod +x .github/scripts/ec2-deploy-providers.sh
+          .github/scripts/ec2-deploy-providers.sh
+
+      - name: Deploy to EC2 (Node / pm2)
+        if: inputs.environment == 'prod' && steps.cfg.outputs.docker != 'true'
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SERVICE: ${{ steps.cfg.outputs.ec2_app }}
+          SERVICE_PATH: ${{ steps.cfg.outputs.path }}
+          DEPLOY_ROOT: ${{ steps.ec2path.outputs.path }}
+          BUILD_VERSION: ${{ env.BUILD_VERSION }}
+          INSTALL_CMD: ${{ steps.cfg.outputs.install }}
+          PM2_APP: ${{ steps.cfg.outputs.ec2_app }}
+          PM2_SCRIPT: ${{ steps.cfg.outputs.pm2_script }}
+          ENV_FILE_LOCAL: /tmp/service.env
+        run: |
+          chmod +x .github/scripts/ec2-deploy-node.sh
+          .github/scripts/ec2-deploy-node.sh
+
+      - name: Deployment summary
+        run: |
+          echo "### ${{ steps.cfg.outputs.label }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: **${{ inputs.environment }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build version: \`${{ env.BUILD_VERSION }}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ inputs.environment }}" == "prod" ]]; then
+            echo "- EC2 path: \`${{ steps.ec2path.outputs.path }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Rollback: run **Rollback Backend** workflow with this version." >> "$GITHUB_STEP_SUMMARY"
+          fi
