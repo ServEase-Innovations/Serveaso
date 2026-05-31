@@ -30,6 +30,11 @@ on:
           - reviews
           - image-uploader
           - chat
+      wait_for_render:
+        description: Dev only — poll Render until deploy finishes and print logs
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: deploy-backend-${{ inputs.environment }}-${{ inputs.service }}
@@ -96,24 +101,54 @@ jobs:
           RENDER_HOOK_REVIEWS: ${{ secrets.RENDER_DEPLOY_HOOK_REVIEWS }}
           RENDER_HOOK_IMAGE_UPLOADER: ${{ secrets.RENDER_DEPLOY_HOOK_IMAGE_UPLOADER }}
           RENDER_HOOK_CHAT: ${{ secrets.RENDER_DEPLOY_HOOK_CHAT }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_OWNER_ID: ${{ secrets.RENDER_OWNER_ID }}
+          RENDER_SVC_ID_PAYMENTS: ${{ secrets.RENDER_SERVICE_ID_PAYMENTS }}
+          RENDER_SVC_ID_PROVIDERS: ${{ secrets.RENDER_SERVICE_ID_PROVIDERS }}
+          RENDER_SVC_ID_COUPONS: ${{ secrets.RENDER_SERVICE_ID_COUPONS }}
+          RENDER_SVC_ID_PREFERENCES: ${{ secrets.RENDER_SERVICE_ID_PREFERENCES }}
+          RENDER_SVC_ID_UTILS: ${{ secrets.RENDER_SERVICE_ID_UTILS }}
+          RENDER_SVC_ID_REVIEWS: ${{ secrets.RENDER_SERVICE_ID_REVIEWS }}
+          RENDER_SVC_ID_IMAGE_UPLOADER: ${{ secrets.RENDER_SERVICE_ID_IMAGE_UPLOADER }}
+          RENDER_SVC_ID_CHAT: ${{ secrets.RENDER_SERVICE_ID_CHAT }}
         run: |
-          chmod +x .github/scripts/render-deploy.sh
+          chmod +x .github/scripts/render-deploy.sh .github/scripts/render-watch-deploy.sh
           case "${{ matrix.service }}" in
-            payments)       HOOK="${RENDER_HOOK_PAYMENTS}" ;;
-            providers)      HOOK="${RENDER_HOOK_PROVIDERS}" ;;
-            coupons)        HOOK="${RENDER_HOOK_COUPONS}" ;;
-            preferences)    HOOK="${RENDER_HOOK_PREFERENCES}" ;;
-            utils)          HOOK="${RENDER_HOOK_UTILS}" ;;
-            reviews)        HOOK="${RENDER_HOOK_REVIEWS}" ;;
-            image-uploader) HOOK="${RENDER_HOOK_IMAGE_UPLOADER}" ;;
-            chat)           HOOK="${RENDER_HOOK_CHAT}" ;;
+            payments)       HOOK="${RENDER_HOOK_PAYMENTS}"; SVC_ID="${RENDER_SVC_ID_PAYMENTS}" ;;
+            providers)      HOOK="${RENDER_HOOK_PROVIDERS}"; SVC_ID="${RENDER_SVC_ID_PROVIDERS}" ;;
+            coupons)        HOOK="${RENDER_HOOK_COUPONS}"; SVC_ID="${RENDER_SVC_ID_COUPONS}" ;;
+            preferences)    HOOK="${RENDER_HOOK_PREFERENCES}"; SVC_ID="${RENDER_SVC_ID_PREFERENCES}" ;;
+            utils)          HOOK="${RENDER_HOOK_UTILS}"; SVC_ID="${RENDER_SVC_ID_UTILS}" ;;
+            reviews)        HOOK="${RENDER_HOOK_REVIEWS}"; SVC_ID="${RENDER_SVC_ID_REVIEWS}" ;;
+            image-uploader) HOOK="${RENDER_HOOK_IMAGE_UPLOADER}"; SVC_ID="${RENDER_SVC_ID_IMAGE_UPLOADER}" ;;
+            chat)           HOOK="${RENDER_HOOK_CHAT}"; SVC_ID="${RENDER_SVC_ID_CHAT}" ;;
             *) echo "Unknown service"; exit 1 ;;
           esac
           if [[ -z "${HOOK}" ]]; then
             echo "::error::Missing Render deploy hook secret for ${{ matrix.service }}. See docs/DEPLOYMENT.md"
             exit 1
           fi
+          export DEPLOY_CREATED_AFTER="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           .github/scripts/render-deploy.sh "${HOOK}"
+          if [[ "${{ inputs.wait_for_render }}" != "true" ]]; then
+            echo "Skipping Render deploy watch (wait_for_render=false)."
+            exit 0
+          fi
+          if [[ -z "${RENDER_API_KEY}" || -z "${SVC_ID}" ]]; then
+            echo "::warning::RENDER_API_KEY or RENDER_SERVICE_ID_* not set — deploy triggered but logs/watch skipped."
+            exit 0
+          fi
+          export RENDER_API_KEY RENDER_OWNER_ID
+          .github/scripts/render-watch-deploy.sh "${SVC_ID}"
+
+      - name: Upload Render logs (dev)
+        if: inputs.environment == 'dev' && inputs.wait_for_render == true
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: render-logs-${{ matrix.service }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/render-logs/
+          if-no-files-found: ignore
 
       - name: Write prod env file
         if: inputs.environment == 'prod'

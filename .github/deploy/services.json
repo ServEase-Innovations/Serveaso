@@ -5,14 +5,16 @@
     "ec2_app": "payments",
     "pm2": true,
     "install": "npm ci --omit=dev --legacy-peer-deps",
-    "render_secret": "RENDER_DEPLOY_HOOK_PAYMENTS"
+    "render_secret": "RENDER_DEPLOY_HOOK_PAYMENTS",
+    "render_service_id_secret": "RENDER_SERVICE_ID_PAYMENTS"
   },
   "providers": {
     "label": "Providers",
     "path": "services/providers",
     "ec2_app": "providers",
     "docker": true,
-    "render_secret": "RENDER_DEPLOY_HOOK_PROVIDERS"
+    "render_secret": "RENDER_DEPLOY_HOOK_PROVIDERS",
+    "render_service_id_secret": "RENDER_SERVICE_ID_PROVIDERS"
   },
   "coupons": {
     "label": "Coupons",
@@ -20,7 +22,8 @@
     "ec2_app": "coupons",
     "pm2": true,
     "install": "npm ci --omit=dev && npx prisma generate",
-    "render_secret": "RENDER_DEPLOY_HOOK_COUPONS"
+    "render_secret": "RENDER_DEPLOY_HOOK_COUPONS",
+    "render_service_id_secret": "RENDER_SERVICE_ID_COUPONS"
   },
   "preferences": {
     "label": "Preferences",
@@ -28,7 +31,8 @@
     "ec2_app": "preferences",
     "pm2": true,
     "install": "npm ci --omit=dev",
-    "render_secret": "RENDER_DEPLOY_HOOK_PREFERENCES"
+    "render_secret": "RENDER_DEPLOY_HOOK_PREFERENCES",
+    "render_service_id_secret": "RENDER_SERVICE_ID_PREFERENCES"
   },
   "utils": {
     "label": "Utils",
@@ -36,7 +40,8 @@
     "ec2_app": "utils",
     "pm2": true,
     "install": "npm ci --omit=dev --legacy-peer-deps",
-    "render_secret": "RENDER_DEPLOY_HOOK_UTILS"
+    "render_secret": "RENDER_DEPLOY_HOOK_UTILS",
+    "render_service_id_secret": "RENDER_SERVICE_ID_UTILS"
   },
   "reviews": {
     "label": "Reviews",
@@ -44,7 +49,8 @@
     "ec2_app": "reviews",
     "pm2": true,
     "install": "npm ci && npm run build",
-    "render_secret": "RENDER_DEPLOY_HOOK_REVIEWS"
+    "render_secret": "RENDER_DEPLOY_HOOK_REVIEWS",
+    "render_service_id_secret": "RENDER_SERVICE_ID_REVIEWS"
   },
   "image-uploader": {
     "label": "Image Uploader",
@@ -52,7 +58,8 @@
     "ec2_app": "image-uploader",
     "pm2": true,
     "install": "npm ci --omit=dev",
-    "render_secret": "RENDER_DEPLOY_HOOK_IMAGE_UPLOADER"
+    "render_secret": "RENDER_DEPLOY_HOOK_IMAGE_UPLOADER",
+    "render_service_id_secret": "RENDER_SERVICE_ID_IMAGE_UPLOADER"
   },
   "chat": {
     "label": "Chat",
@@ -61,6 +68,7 @@
     "pm2": true,
     "pm2_script": "backend/server.js",
     "install": "npm ci --legacy-peer-deps",
-    "render_secret": "RENDER_DEPLOY_HOOK_CHAT"
+    "render_secret": "RENDER_DEPLOY_HOOK_CHAT",
+    "render_service_id_secret": "RENDER_SERVICE_ID_CHAT"
   }
 }

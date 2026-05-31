@@ -109,6 +109,29 @@ Create a **Deploy Hook** in each Render service (Settings → Deploy Hook). Add 
 
 Dev deploy only **triggers** Render; it does not push env vars (configure those in the Render dashboard).
 
+### Render API (dev — deploy logs & status)
+
+To **wait for the deploy**, **fail the job on build failure**, and show **build/app logs** in the Actions log and job summary, add:
+
+| Secret | Description |
+|--------|-------------|
+| `RENDER_API_KEY` | [Render API key](https://dashboard.render.com/u/settings#api-keys) (same workspace as dev services) |
+| `RENDER_OWNER_ID` | *(optional)* Workspace ID; if omitted, resolved from the service |
+| `RENDER_SERVICE_ID_PAYMENTS` | Service ID from Render dashboard URL (`srv-…`) |
+| `RENDER_SERVICE_ID_PROVIDERS` | … |
+| `RENDER_SERVICE_ID_COUPONS` | … |
+| `RENDER_SERVICE_ID_PREFERENCES` | … |
+| `RENDER_SERVICE_ID_UTILS` | … |
+| `RENDER_SERVICE_ID_REVIEWS` | … |
+| `RENDER_SERVICE_ID_IMAGE_UPLOADER` | … |
+| `RENDER_SERVICE_ID_CHAT` | … |
+
+**Payments only:** set `RENDER_API_KEY` + `RENDER_SERVICE_ID_PAYMENTS`; other services can omit service IDs until you want logs for them too.
+
+On **Deploy Backend** → `dev`, leave **wait_for_render** enabled (default) to poll until `live` or `build_failed`. Logs also upload as a workflow artifact (`render-logs-<service>-<run>`).
+
+If only deploy hooks are configured, dev deploy still works; the workflow prints a warning and does not wait for logs.
+
 ---
 
 ## EC2 server prerequisites
