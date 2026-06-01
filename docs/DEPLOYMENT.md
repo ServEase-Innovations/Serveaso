@@ -74,6 +74,7 @@ Optional per-service deploy roots (defaults shown):
 | `EC2_DEPLOY_PATH_PREFERENCES` | `/home/ubuntu/preferences` |
 | `EC2_DEPLOY_PATH_UTILS` | `/home/ubuntu/utils` |
 | `EC2_DEPLOY_PATH_REVIEWS` | `/home/ubuntu/reviews` |
+| `EC2_DEPLOY_PATH_TICKETS` | `/home/ubuntu/tickets` |
 | `EC2_DEPLOY_PATH_IMAGE_UPLOADER` | `/home/ubuntu/image-uploader` |
 | `EC2_DEPLOY_PATH_CHAT` | `/home/ubuntu/chat` |
 
@@ -104,6 +105,7 @@ Create a **Deploy Hook** in each Render service (Settings → Deploy Hook). Add 
 | `RENDER_DEPLOY_HOOK_PREFERENCES` | preferences |
 | `RENDER_DEPLOY_HOOK_UTILS` | utils |
 | `RENDER_DEPLOY_HOOK_REVIEWS` | reviews |
+| `RENDER_DEPLOY_HOOK_TICKETS` | tickets |
 | `RENDER_DEPLOY_HOOK_IMAGE_UPLOADER` | image-uploader |
 | `RENDER_DEPLOY_HOOK_CHAT` | chat |
 

@@ -52,6 +52,15 @@
     "render_secret": "RENDER_DEPLOY_HOOK_REVIEWS",
     "render_service_id_secret": "RENDER_SERVICE_ID_REVIEWS"
   },
+  "tickets": {
+    "label": "Tickets",
+    "path": "services/tickets",
+    "ec2_app": "tickets",
+    "pm2": true,
+    "install": "npm ci --omit=dev",
+    "render_secret": "RENDER_DEPLOY_HOOK_TICKETS",
+    "render_service_id_secret": "RENDER_SERVICE_ID_TICKETS"
+  },
   "image-uploader": {
     "label": "Image Uploader",
     "path": "services/imageUploader",

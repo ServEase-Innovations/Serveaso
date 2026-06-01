@@ -466,6 +466,7 @@ npm run dev:providers
 npm run dev:coupons
 npm run dev:utils
 npm run dev:reviews
+npm run dev:tickets
 ```
 
 ### Web UI (points APIs at the ports above)

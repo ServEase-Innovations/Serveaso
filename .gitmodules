@@ -28,3 +28,6 @@
 [submodule "apps/servease-ios"]
 	path = apps/servease-ios
 	url = https://github.com/ServEase-Innovations/servease_ios.git
+[submodule "services/tickets"]
+	path = services/tickets
+	url = https://github.com/ServEase-Innovations/tickets.git
