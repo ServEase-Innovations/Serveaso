@@ -1,5 +1,7 @@
 # Backend CI/CD (GitHub Actions)
 
+For database layout, table inventory, and design tradeoffs, see **[DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)**.
+
 Deployments are driven from the **Serveaso** monorepo (this repo). Each backend lives under `services/*` (Git submodules).
 
 ## Workflows

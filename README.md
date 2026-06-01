@@ -14,6 +14,7 @@ This **parent** repository uses **Git submodules** to pin the backend services a
 | `services/notifications` | Mail / notification sending (code under `Mail/`) | [ServEase-Innovations/notifications](https://github.com/ServEase-Innovations/notifications) |
 | `services/chat` | Real-time chat (MERN: `backend/`, `frontend/`) | [ServEase-Innovations/chat](https://github.com/ServEase-Innovations/chat) |
 | `services/reviews` | Reviews service (TypeScript, Prisma, PostgreSQL) | [ServEase-Innovations/reviews](https://github.com/ServEase-Innovations/reviews) |
+| `services/tickets` | Support tickets / complaints (PostgreSQL / Prisma) | [ServEase-Innovations/tickets](https://github.com/ServEase-Innovations/tickets) |
 | `apps/servase-ui` | **React (CRA) + TypeScript** customer UI for Servease | [ServEase-Innovations/ServEase_UI](https://github.com/ServEase-Innovations/ServEase_UI) |
 
 ## System architecture
@@ -70,11 +71,14 @@ flowchart TB
 
 ## Data stores and database design
 
+**Full guide (schema by domain, benefits, tradeoffs):** **[`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md)**
+
 Each service ships its own **connection string and migrations**. In **local** setups, a single [Docker Compose](docker-compose.yml) can run one **Postgres** (`serveaso`) and one **Mongo**; in **production**, you may use separate clusters per service. The list below is the *logical* design; **columns, constraints, and indexes** are in the SQL/Prisma files linked in each subsection.
 
 | Store | Typical engine | What it holds |
 | ----- | -------------- | ---------------- |
 | Core + payments domain | **PostgreSQL** | Customers, providers, engagements, wallets, payment rows, notifications, and related tables in [`schema.sql`](services/payments/src/config/db/schema.sql) (plus [patch migrations](services/payments/src/config/db/migrations/)) |
+| Support tickets | **PostgreSQL** (shared `serveaso` in dev) | `support_tickets`, `support_ticket_comments`, `support_ticket_events` — [`services/tickets/prisma/`](services/tickets/prisma/) |
 | Promo (coupons service) | **PostgreSQL** (often same host/DB) | Prisma `coupons` (UUID) + `coupon_redemptions` — [migrations](services/coupons/prisma/migrations/) |
 | Standalone reviews API | **PostgreSQL** (often a separate `DATABASE_URL`) | `ProviderReview` — [Prisma](services/reviews/prisma/schema.prisma) |
 | Preferences + admin utilities | **MongoDB** | Documents for preferences, pricing/records, settings — per service `MONGO_URI` / Mongoose in **utils** |
@@ -348,6 +352,7 @@ These tables are defined in [`services/payments/src/config/db/schema.sql`](servi
 | **Wallets and money** | `customer_wallets`, `wallets` (alt naming), `wallet_transaction`, `wallet_transactions`, `payments`, `payouts` |
 | **Provider wallet** | `provider_wallets` |
 | **Reviews (core DB)** | `provider_reviews` (same-name concept as the separate reviews service model; do not assume identical columns without diffing) |
+| **Support** | `support_tickets`, `support_ticket_comments`, `support_ticket_events` (tickets service; see [`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md)) |
 | **Misc** | `coupons` (legacy `bigint` style in this snapshot), `in_app_notifications` (also in **migration** file below) |
 
 **Applied outside the single `schema.sql` file:** [`in_app_notifications.sql`](services/payments/src/config/db/migrations/in_app_notifications.sql) ensures the in-app table exists and indexes unread rows.
