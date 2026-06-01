@@ -20,10 +20,15 @@
     "start:utils": "npm run start --workspace=services/utils",
     "dev:reviews": "PORT=5005 npm run dev --workspace=services/reviews",
     "dev:tickets": "PORT=5006 npm run dev --workspace=services/tickets",
-    "dev:ui": "npm start --prefix apps/servase-ui"
+    "dev:ui": "npm start --prefix apps/servase-ui",
+    "db:migrate": "npm run migrate --prefix database",
+    "db:migrate:sql": "npm run migrate:sql --prefix database",
+    "db:migrate:prisma": "npm run migrate:prisma --prefix database",
+    "db:install": "npm install --prefix database"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "pg": "^8.21.0"
   },
   "engines": {
     "node": ">=20"

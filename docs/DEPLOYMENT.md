@@ -4,11 +4,35 @@ For database layout, table inventory, and design tradeoffs, see **[DATABASE_SCHE
 
 Deployments are driven from the **Serveaso** monorepo (this repo). Each backend lives under `services/*` (Git submodules).
 
+## Database migrations ([DB_Migrations](https://github.com/ServEase-Innovations/DB_Migrations))
+
+Schema DDL is **not** applied by microservices on startup. The monorepo pins migrations as the **`database/`** git submodule.
+
+```bash
+git clone --recurse-submodules <monorepo-url> Serveaso-BE
+cd Serveaso-BE
+npm run db:install && npm run db:migrate
+```
+
+### Database secrets (required for CI migrate)
+
+| Secret | Used when |
+|--------|-----------|
+| `DEV_DATABASE_URL` | `environment: dev` — full Postgres URL for shared `serveaso` |
+| `PROD_DATABASE_URL` | `environment: prod` |
+
+Example: `postgresql://user:pass@host:5432/serveaso`
+
+See also **[DATABASE_MIGRATIONS.md](./DATABASE_MIGRATIONS.md)**.
+
+---
+
 ## Workflows
 
 | Workflow | Purpose |
 |----------|---------|
-| [**Deploy Backend**](../.github/workflows/deploy-backend.yml) | Manual deploy to **dev** (Render) or **prod** (EC2) |
+| [**Migrate Database**](../.github/workflows/migrate-database.yml) | Manual: SQL + Prisma (tickets) on dev or prod |
+| [**Deploy Backend**](../.github/workflows/deploy-backend.yml) | Manual deploy to **dev** (Render) or **prod** (EC2); migrations first if enabled |
 | [**Rollback Backend (EC2)**](../.github/workflows/rollback-backend.yml) | Roll back **prod** to a previous build version |
 
 ### Deploy Backend
@@ -90,6 +114,7 @@ Optional per-service deploy roots (defaults shown):
 | `PROD_ENV_PREFERENCES` |
 | `PROD_ENV_UTILS` |
 | `PROD_ENV_REVIEWS` |
+| `PROD_ENV_TICKETS` |
 | `PROD_ENV_IMAGE_UPLOADER` |
 | `PROD_ENV_CHAT` |
 
@@ -127,6 +152,7 @@ To **wait for the deploy**, **fail the job on build failure**, and show **build/
 | `RENDER_SERVICE_ID_PREFERENCES` | … |
 | `RENDER_SERVICE_ID_UTILS` | … |
 | `RENDER_SERVICE_ID_REVIEWS` | … |
+| `RENDER_SERVICE_ID_TICKETS` | … |
 | `RENDER_SERVICE_ID_IMAGE_UPLOADER` | … |
 | `RENDER_SERVICE_ID_CHAT` | … |
 

@@ -31,3 +31,6 @@
 [submodule "services/tickets"]
 	path = services/tickets
 	url = https://github.com/ServEase-Innovations/tickets.git
+[submodule "database"]
+	path = database
+	url = https://github.com/ServEase-Innovations/DB_Migrations.git

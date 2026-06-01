@@ -71,13 +71,14 @@ flowchart TB
 
 ## Data stores and database design
 
-**Full guide (schema by domain, benefits, tradeoffs):** **[`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md)**
+**Full guide (schema by domain, benefits, tradeoffs):** **[`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md)**  
+**Canonical bookings (one engagement table):** **[`docs/ENGAGEMENT_CANONICAL.md`](docs/ENGAGEMENT_CANONICAL.md)**
 
 Each service ships its own **connection string and migrations**. In **local** setups, a single [Docker Compose](docker-compose.yml) can run one **Postgres** (`serveaso`) and one **Mongo**; in **production**, you may use separate clusters per service. The list below is the *logical* design; **columns, constraints, and indexes** are in the SQL/Prisma files linked in each subsection.
 
 | Store | Typical engine | What it holds |
 | ----- | -------------- | ---------------- |
-| Core + payments domain | **PostgreSQL** | Customers, providers, engagements, wallets, payment rows, notifications, and related tables in [`schema.sql`](services/payments/src/config/db/schema.sql) (plus [patch migrations](services/payments/src/config/db/migrations/)) |
+| Core + payments domain | **PostgreSQL** | Customers, providers, engagements, wallets, payment rows, notifications, and related tables in [`schema.sql`](services/payments/src/config/db/schema.sql); DDL patches in [`database/`](database/) — see [`docs/DATABASE_MIGRATIONS.md`](docs/DATABASE_MIGRATIONS.md) |
 | Support tickets | **PostgreSQL** (shared `serveaso` in dev) | `support_tickets`, `support_ticket_comments`, `support_ticket_events` — [`services/tickets/prisma/`](services/tickets/prisma/) |
 | Promo (coupons service) | **PostgreSQL** (often same host/DB) | Prisma `coupons` (UUID) + `coupon_redemptions` — [migrations](services/coupons/prisma/migrations/) |
 | Standalone reviews API | **PostgreSQL** (often a separate `DATABASE_URL`) | `ProviderReview` — [Prisma](services/reviews/prisma/schema.prisma) |
@@ -101,9 +102,7 @@ Full setup (Firebase project, service account, env vars, API reference, mobile +
 
 - Each diagram is **Mermaid**; GitHub renders it. If you edit locally, [validate syntax](https://mermaid.js.org/syntax/entityRelationshipDiagram.html).
 - **Tables** are shown with a few key columns. Full definitions are in the linked SQL/Prisma files.
-- The **same PostgreSQL** often holds *two* booking “tracks”:
-  - **`engagements`**: longer or structured contracts (e.g. monthly) — see FKs in [`schema.sql`](services/payments/src/config/db/schema.sql) `REFERENCES public.engagements`.
-  - **`serviceprovider_engagement`**: on-demand or legacy per-row bookings — e.g. **`booking_transaction.engagement_id` → `serviceprovider_engagement.id`**, not to `engagements.engagement_id` (see `fkkivwnnxvqx05mibfdqqlwjtxl` in the schema file).
+- **Bookings:** all flows use **`engagements`** (`booking_type`: `ON_DEMAND`, `SHORT_TERM`, `MONTHLY`). See **[`docs/ENGAGEMENT_CANONICAL.md`](docs/ENGAGEMENT_CANONICAL.md)**.
 - **`in_app_notifications`** has **no polymorphic foreign key** in the migration; the app matches `recipient_id` to `customer` or `serviceprovider` by `recipient_type`.
 - **Vendor / users / `user_credentials`** are real tables; cross-links may be app-level. See the **Table inventory** subsection that follows the diagrams.
 
@@ -114,21 +113,16 @@ flowchart TB
   c[customer]
   sp[serviceprovider]
   e[engagements]
-  se[serviceprovider_engagement]
   rv[provider_reviews]
   bt[booking_transaction]
   c -->|0..N| e
   sp -->|0..N| e
-  c -->|0..N| se
-  sp -->|0..N| se
   e -->|0..N charges| pmt[payments]
-  se -->|0..1| bt
-  bt -->|FK spe.id| se
-  e -->|0..1 XOR| rv
-  se -->|0..1 XOR| rv
+  e -->|0..1| bt
+  e -->|0..1| rv
 ```
 
-*A single `provider_reviews` row links to **either** an `engagements` row **or** a `serviceprovider_engagement` row, enforced by a database CHECK; see ERD 5.*
+*Each `provider_reviews` row links to one `engagements` row; see ERD 5.*
 
 #### 2) ERD: identity, addresses, KYC
 
@@ -177,9 +171,6 @@ erDiagram
   engagements {
     bigint engagement_id PK
   }
-  serviceprovider_engagement {
-    bigint id PK
-  }
   engagement_modifications {
     bigint modification_id PK
   }
@@ -203,18 +194,16 @@ erDiagram
   }
   customer ||--o{ engagements : "as_customer"
   serviceprovider ||--o{ engagements : "as_provider"
-  customer ||--o{ serviceprovider_engagement : "as_customer"
-  serviceprovider ||--o{ serviceprovider_engagement : "as_provider"
   engagements ||--o{ engagement_modifications : "history"
   customer ||--o{ customer_leaves : "leaves"
   customer_leaves }o--|| engagements : "engagement_fk"
+  engagements ||--o{ customer_holidays : "holidays"
+  customer }o--o{ customer_holidays : "customer_fk"
+  engagements }o--|| booking_transaction : "0..1_txn"
   serviceprovider ||--o{ provider_availability : "slots"
   serviceprovider ||--o{ provider_leaves : "leave_rows"
   provider_availability }o--|| engagements : "optional_tie"
   provider_leaves }o--|| engagements : "optional_tie"
-  serviceprovider_engagement ||--o{ customer_holidays : "holidays"
-  customer }o--o{ customer_holidays : "customer_fk"
-  serviceprovider_engagement }o--|| booking_transaction : "0..1_txn"
   customer }o--o{ attendance : "attend"
   serviceprovider }o--o{ attendance : "attend"
 ```
@@ -259,9 +248,7 @@ erDiagram
   engagements }o--o{ payouts : "optional_engage_tie"
 ```
 
-#### 5) ERD: `provider_reviews` (mutually exclusive booking link)
-
-**Rule:** `serviceprovider_engagement_id` **XOR** `engagement_id` (exactly one) — `one_experience_only` in the DDL.
+#### 5) ERD: `provider_reviews`
 
 ```mermaid
 erDiagram
@@ -274,17 +261,13 @@ erDiagram
   engagements {
     bigint engagement_id PK
   }
-  serviceprovider_engagement {
-    bigint id PK
-  }
   provider_reviews {
     bigint review_id PK
     int rating
   }
   customer ||--o{ provider_reviews : "author"
   serviceprovider ||--o{ provider_reviews : "target"
-  provider_reviews }o--o| serviceprovider_engagement : "XOR_A_on_demand"
-  provider_reviews }o--o| engagements : "XOR_B_subscr_short"
+  provider_reviews }o--|| engagements : "one_booking_per_review"
 ```
 
 #### 6) In-app notifications (polymorphic, no `FOREIGN KEY` in migration)
@@ -344,7 +327,7 @@ These tables are defined in [`services/payments/src/config/db/schema.sql`](servi
 | ---- | ------ |
 | **Parties and identity** | `address`, `customer`, `serviceprovider`, `vendor`, `users`, `user_credentials` |
 | **KYC and provider ops** | `kyc`, `kyc_comments`, `leave_balance`, `service_provider_leave` |
-| **Engagements and booking** | `engagements`, `engagement_modifications`, `serviceprovider_engagement`, `booking_transaction`, `provider_availability`, `provider_leaves`, `shortlisted_service_provider` |
+| **Engagements and booking** | `engagements`, `engagement_modifications`, `booking_transaction`, `provider_availability`, `provider_leaves`, `shortlisted_service_provider` |
 | **Customer-side flows** | `customerrequest`, `customerrequestcomment`, `customer_holidays`, `customer_leaves`, `customerconcern`, `customer_payments` (subscription-style rows), `customer_used_coupons`, `service_provider_used_coupons` |
 | **Provider-side flows** | `serviceproviderrequest`, `service_provider_request_comments`, `service_provider_payment` |
 | **Field operations** | `attendance` |
@@ -413,6 +396,7 @@ A common pattern is: **this layout for local / integration work**, and **indepen
 ```bash
 git clone --recurse-submodules <your-monorepo-url> Serveaso-BE
 cd Serveaso-BE
+npm run db:install && npm run db:migrate   # database/ → DB_Migrations submodule
 ```
 
 If you already cloned without submodules:
@@ -556,6 +540,7 @@ docker compose up -d
 
 ```
 .gitmodules            # submodule URLs + paths
+database/              # submodule → DB_Migrations (Postgres DDL)
 apps/
   servase-ui/          # submodule → ServEase_UI (React; own package-lock)
 services/
