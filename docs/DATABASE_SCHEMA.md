@@ -93,7 +93,7 @@ Applied via **[`database/`](../database/)** (central SQL + Prisma manifest). Pay
 | `provider_availability`, `provider_leaves` | Provider scheduling |
 | `shortlisted_service_provider` | Customer shortlists during matching |
 
-Legacy `serviceprovider_engagement` was merged and dropped via [`merge_serviceprovider_engagement.sql`](../services/payments/src/config/db/migrations/merge_serviceprovider_engagement.sql).
+Legacy `serviceprovider_engagement` was merged and dropped via [`040_merge_serviceprovider_engagement.sql`](../database/sql/040_merge_serviceprovider_engagement.sql) (DB_Migrations).
 
 ```mermaid
 erDiagram
@@ -169,11 +169,11 @@ Migration file: [`in_app_notifications.sql`](../services/payments/src/config/db/
 
 ## PostgreSQL: support tickets (`services/tickets`)
 
-Source: [`services/tickets/prisma/schema.prisma`](../services/tickets/prisma/schema.prisma)  
-Migration: [`services/tickets/prisma/migrations/`](../services/tickets/prisma/migrations/)  
+Source (client): [`services/tickets/prisma/schema.prisma`](../services/tickets/prisma/schema.prisma)  
+DDL / migrations: [`database/prisma/tickets/`](../database/prisma/tickets/) via **`npm run db:migrate`**  
 Legacy reference SQL: [`services/tickets/sql/schema.sql`](../services/tickets/sql/schema.sql)
 
-Runs against the **same** `serveaso` database as payments in local/monorepo dev. On startup, tickets runs `prisma migrate deploy` (see tickets README).
+Runs against the **same** `serveaso` database as payments. Schema is **not** applied on tickets startup (see [DEPLOYMENT.md](./DEPLOYMENT.md)).
 
 | Table | Purpose |
 | ----- | ------- |
@@ -281,7 +281,7 @@ Separate MERN submodule; message and user models in MongoDB. Not part of the cor
 | Tradeoff | Impact | Mitigation |
 | -------- | ------ | ---------- |
 | **Monolithic Postgres in dev, optional split in prod** | Schema drift if one service migrates without others knowing | Document migrations here; run migrate deploy in CI; communicate cross-team |
-| **Merged legacy engagements** | One-time dev migration repointed old FKs | Re-run payments `initDB` if an old DB still has `serviceprovider_engagement` |
+| **Merged legacy engagements** | One-time migration repointed old FKs | Run `npm run db:migrate` if an old DB still has `serviceprovider_engagement` |
 | **Legacy + Prisma `coupons`** | Name collision on `coupons` | Use UUID Prisma tables for new work; migrate off bigint legacy deliberately |
 | **Duplicate review storage** | `provider_reviews` vs reviews service `ProviderReview` | Pick one write path per feature; avoid double-submit |
 | **No FK on `in_app_notifications`** | Orphan rows if recipient deleted | Periodic cleanup; validate IDs on insert |
