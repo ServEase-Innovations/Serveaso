@@ -21,7 +21,7 @@ npm run db:install && npm run db:migrate
 | `DEV_DATABASE_URL` | `environment: dev` — full Postgres URL for shared `serveaso` |
 | `PROD_DATABASE_URL` | `environment: prod` |
 
-Example: `postgresql://user:pass@host:5432/serveaso`
+Example: `postgresql://user:pass@host:5432/serveaso1`
 
 See also **[DATABASE_MIGRATIONS.md](./DATABASE_MIGRATIONS.md)**.
 

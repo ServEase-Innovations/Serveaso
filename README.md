@@ -429,7 +429,7 @@ Runs installs for every workspace (including submodule packages).
 
 ## Run locally
 
-**Databases (local):** `docker compose up -d` starts Postgres and Mongo on `127.0.0.1`. Service env files use `POSTGRES_HOST=127.0.0.1`, `POSTGRES_DB=serveaso`, `MONGO_URI=mongodb://127.0.0.1:27017/serveaso` (see [`.env.local.example`](.env.local.example)). Tickets/reviews/coupons read Postgres via `services/payments/.env.development`. `npm run dev` runs migrations first (`predev`: baseline if needed, then incremental SQL + tickets Prisma). One-time full reset: `npm run dev:setup`. Skip on restart: `SKIP_DEV_MIGRATIONS=true npm run dev`.
+**Databases (local):** `docker compose up -d` starts Postgres and Mongo on `127.0.0.1`. Set **`POSTGRES_DB`** once in repo-root **`.env.local`** (see [`.env.local.example`](.env.local.example)); all services and migrations resolve the database name from `POSTGRES_DB`, `DB_NAME`, or `DATABASE_URL`. Service env files under `services/*/.env.development` can override host/credentials. `npm run dev` runs migrations first (`predev`). One-time full reset: `npm run dev:setup`. Skip on restart: `SKIP_DEV_MIGRATIONS=true npm run dev`.
 
 **All services** (non-clashing ports via env in the script):
 
@@ -535,7 +535,7 @@ Each service keeps its own `.env`. See `.env.monorepo.example` for the default p
 docker compose up -d
 ```
 
-- PostgreSQL: `localhost:5432`, user/password/database `serveaso`
+- PostgreSQL: `localhost:5432`, user/password `serveaso`, database from **`POSTGRES_DB`** in `.env.local`
 - MongoDB: `localhost:27017`
 
 ## Layout

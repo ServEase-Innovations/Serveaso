@@ -3,11 +3,17 @@
  * Set SKIP_DEV_MIGRATIONS=true to skip (faster restarts when schema is already up to date).
  */
 import { spawnSync } from "child_process";
+import { createRequire } from "module";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+const require = createRequire(import.meta.url);
+const { loadMonorepoPostgresEnv, syncPostgresDbAliases } = require("./postgres-env.cjs");
+
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+loadMonorepoPostgresEnv({ root });
 
 function loadPaymentsEnv() {
   const envPath = path.join(root, "services/payments/.env.development");
@@ -26,6 +32,7 @@ function loadPaymentsEnv() {
 }
 
 loadPaymentsEnv();
+syncPostgresDbAliases(process.env);
 
 if (process.env.SKIP_DEV_MIGRATIONS === "true") {
   console.log("[predev] SKIP_DEV_MIGRATIONS=true — skipping database migrations");
@@ -42,7 +49,7 @@ function run(label, args) {
   });
   if (result.status !== 0) {
     console.error(
-      `[predev] ${label} failed. Fix Postgres (docker compose up -d) and connection env in services/payments/.env.development`
+      `[predev] ${label} failed. Fix Postgres (docker compose up -d) and set POSTGRES_DB in repo-root .env.local or services/payments/.env.development`
     );
     process.exit(result.status ?? 1);
   }

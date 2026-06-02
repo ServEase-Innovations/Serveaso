@@ -8,13 +8,13 @@ services:
     environment:
       POSTGRES_USER: serveaso
       POSTGRES_PASSWORD: serveaso
-      POSTGRES_DB: serveaso
+      POSTGRES_DB: ${POSTGRES_DB:-serveaso1}
     ports:
       - "5432:5432"
     volumes:
       - serveaso_pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U serveaso -d serveaso"]
+      test: ["CMD-SHELL", "pg_isready -U serveaso -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 5

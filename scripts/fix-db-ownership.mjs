@@ -6,6 +6,13 @@ import pg from "pg";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const {
+  loadMonorepoPostgresEnv,
+  requirePostgresDatabaseName,
+} = require("./postgres-env.cjs");
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const targetRole = process.env.POSTGRES_USER || "serveaso";
@@ -24,11 +31,15 @@ function loadEnvFromPayments() {
   }
 }
 
+loadMonorepoPostgresEnv({ root });
 loadEnvFromPayments();
 
 const superUrl =
   process.env.POSTGRES_SUPERUSER_URL ||
-  `postgresql://postgres:${process.env.POSTGRES_PASSWORD || "serveaso"}@${process.env.POSTGRES_HOST || "127.0.0.1"}:${process.env.POSTGRES_PORT || 5432}/${process.env.POSTGRES_DB || "serveaso"}`;
+  (() => {
+    const db = requirePostgresDatabaseName();
+    return `postgresql://postgres:${process.env.POSTGRES_PASSWORD || "serveaso"}@${process.env.POSTGRES_HOST || "127.0.0.1"}:${process.env.POSTGRES_PORT || 5432}/${db}`;
+  })();
 
 const pool = new pg.Pool({ connectionString: superUrl });
 
@@ -84,7 +95,7 @@ main()
   .catch((err) => {
     console.error("❌ ownership fix failed:", err.message);
     console.error(
-      "   Try: POSTGRES_SUPERUSER_URL=postgresql://postgres:serveaso@127.0.0.1:5432/serveaso node scripts/fix-db-ownership.mjs"
+      "   Try: POSTGRES_SUPERUSER_URL=postgresql://postgres:PASSWORD@127.0.0.1:5432/YOUR_DB node scripts/fix-db-ownership.mjs"
     );
     process.exit(1);
   })
