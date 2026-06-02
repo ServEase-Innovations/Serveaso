@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Poll a Render service deploy and print build + app logs (dev CI).
+# Usage: render-watch-deploy.sh <serviceId> [deployId]
 # Requires: RENDER_API_KEY, service id (arg 1)
-# Optional: RENDER_OWNER_ID, DEPLOY_CREATED_AFTER (ISO 8601), RENDER_DEPLOY_WAIT_SECONDS (default 1200)
+# Optional: deploy id (arg 2 or RENDER_DEPLOY_ID), RENDER_OWNER_ID,
+#   DEPLOY_CREATED_AFTER (ISO 8601), RENDER_DEPLOY_WAIT_SECONDS (default 1200)
 set -euo pipefail
 
 SERVICE_ID="${1:?Render service id required}"
+PREFERRED_DEPLOY_ID="${2:-${RENDER_DEPLOY_ID:-}}"
 API_KEY="${RENDER_API_KEY:?Set RENDER_API_KEY to watch deploys and fetch logs}"
 OWNER_ID="${RENDER_OWNER_ID:-}"
 MAX_WAIT="${RENDER_DEPLOY_WAIT_SECONDS:-1200}"
@@ -25,6 +28,17 @@ curl_api() {
     "$@"
 }
 
+curl_api_body() {
+  local out_file="$1"
+  shift
+  local http_code
+  http_code="$(curl -sS -o "${out_file}" -w "%{http_code}" \
+    -H "Authorization: Bearer ${API_KEY}" \
+    -H "Accept: application/json" \
+    "$@")"
+  echo "${http_code}"
+}
+
 resolve_owner_id() {
   if [[ -n "${OWNER_ID}" ]]; then
     return
@@ -32,14 +46,25 @@ resolve_owner_id() {
   echo "Resolving Render workspace (ownerId) from service ${SERVICE_ID}..."
   local body
   body="$(curl_api "${API}/services/${SERVICE_ID}")"
-  OWNER_ID="$(echo "${body}" | jq -r '.ownerId // .service.ownerId // empty')"
+  OWNER_ID="$(echo "${body}" | jq -r '
+    .ownerId
+    // .service.ownerId
+    // .owner.id
+    // empty
+  ')"
   if [[ -z "${OWNER_ID}" || "${OWNER_ID}" == "null" ]]; then
     echo "::error::Could not resolve ownerId. Set RENDER_OWNER_ID or check RENDER_SERVICE_ID."
     exit 1
   fi
+  echo "Using ownerId: ${OWNER_ID}"
 }
 
 find_deploy_id() {
+  if [[ -n "${PREFERRED_DEPLOY_ID}" ]]; then
+    echo "${PREFERRED_DEPLOY_ID}"
+    return
+  fi
+
   local url="${API}/services/${SERVICE_ID}/deploys?limit=10"
   if [[ -n "${CREATED_AFTER}" ]]; then
     url="${url}&createdAfter=${CREATED_AFTER}"
@@ -57,7 +82,7 @@ find_deploy_id() {
     | .[0].id // empty
   ')"
   if [[ -z "${deploy_id}" ]]; then
-    body="$(curl_api "${API}/services/${SERVICE_ID}/deploys?limit=3")"
+    body="$(curl_api "${API}/services/${SERVICE_ID}/deploys?limit=5")"
     deploy_id="$(echo "${body}" | jq -r '
       def items:
         if type == "array" then .
@@ -92,7 +117,10 @@ iso_to_epoch() {
     echo ""
     return
   fi
-  date -u -d "${iso}" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "${iso}" +%s 2>/dev/null || echo ""
+  # Trim sub-second precision for macOS/BSD date fallback
+  local trimmed="${iso%%.*}"
+  trimmed="${trimmed%Z}Z"
+  date -u -d "${trimmed}" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "${trimmed}" +%s 2>/dev/null || echo ""
 }
 
 fetch_logs() {
@@ -102,32 +130,47 @@ fetch_logs() {
   local start_epoch
   start_epoch="$(iso_to_epoch "${start_iso}")"
 
-  local -a params=(
-    --get
+  local -a base_params=(
+    -G
     "${API}/logs"
     --data-urlencode "ownerId=${OWNER_ID}"
     --data-urlencode "resource=${SERVICE_ID}"
     --data-urlencode "type=${log_type}"
     --data-urlencode "limit=${LOG_LIMIT}"
-    --data-urlencode "direction=forward"
+    --data-urlencode "direction=backward"
   )
-  if [[ -n "${start_epoch}" ]]; then
-    params+=(--data-urlencode "startTime=${start_epoch}")
-  fi
 
-  local body
-  if ! body="$(curl_api "${params[@]}")"; then
-    echo "(failed to fetch ${log_type} logs)" > "${out_file}"
-    return 1
-  fi
+  local tmp_body="${LOG_DIR}/logs-${log_type}-response.json"
+  local http_code
 
-  echo "${body}" | jq -r '
-    if .logs then .logs[]
-    elif .[]? then .[]
-    else empty end
-    | .message // .text // .msg // .
-    | if type == "string" then . else tostring end
-  ' 2>/dev/null > "${out_file}" || echo "${body}" > "${out_file}"
+  # Try with startTime first (when valid), then without (Render returns 400 for some ranges).
+  for use_start in true false; do
+    local -a params=("${base_params[@]}")
+    if [[ "${use_start}" == "true" && -n "${start_epoch}" && "${start_epoch}" =~ ^[0-9]+$ ]]; then
+      params+=(--data-urlencode "startTime=${start_epoch}")
+    elif [[ "${use_start}" == "true" ]]; then
+      continue
+    fi
+
+    http_code="$(curl_api_body "${tmp_body}" "${params[@]}")"
+    if [[ "${http_code}" == "200" ]]; then
+      jq -r '
+        if .logs then .logs[]
+        elif .[]? then .[]
+        else empty end
+        | .message // .text // .msg // .
+        | if type == "string" then . else tostring end
+      ' "${tmp_body}" 2>/dev/null > "${out_file}" || cp "${tmp_body}" "${out_file}"
+      return 0
+    fi
+    if [[ "${use_start}" == "false" ]]; then
+      echo "(failed to fetch ${log_type} logs — HTTP ${http_code})" > "${out_file}"
+      if [[ -s "${tmp_body}" ]]; then
+        echo "::warning::Render logs API (${log_type}): $(head -c 500 "${tmp_body}")"
+      fi
+      return 1
+    fi
+  done
 }
 
 append_summary() {
@@ -161,7 +204,13 @@ is_terminal_status() {
 
 resolve_owner_id
 
-echo "Waiting for Render deploy on service ${SERVICE_ID} (max ${MAX_WAIT}s)..."
+if [[ -n "${PREFERRED_DEPLOY_ID}" ]]; then
+  echo "Watching deploy from hook: ${PREFERRED_DEPLOY_ID}"
+else
+  echo "Watching latest deploy on service ${SERVICE_ID} (created after ${CREATED_AFTER:-any})"
+fi
+
+echo "Waiting for Render deploy (max ${MAX_WAIT}s)..."
 sleep 8
 
 DEPLOY_ID=""
@@ -225,7 +274,8 @@ case "${status}" in
     exit 0
     ;;
   build_failed|update_failed)
-    echo "::error::Render deploy failed (${status}). See build logs above."
+    echo "::error::Render deploy failed (${status}). Open this deploy in the Render dashboard for full logs."
+    echo "Deploy: https://dashboard.render.com (service → Deploys → ${DEPLOY_ID})"
     exit 1
     ;;
   canceled|deactivated)

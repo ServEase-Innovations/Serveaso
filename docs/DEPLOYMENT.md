@@ -162,6 +162,15 @@ On **Deploy Backend** → `dev`, leave **wait_for_render** enabled (default) to 
 
 If only deploy hooks are configured, dev deploy still works; the workflow prints a warning and does not wait for logs.
 
+**Troubleshooting**
+
+| Symptom | Likely cause |
+|---------|----------------|
+| `404` on “Resolving Render workspace” | Wrong `RENDER_SERVICE_ID_*` (must be `srv-…` from hook URL or dashboard, not `dep-…`) |
+| Hook returns `dep-…` but watch shows a different `dep-…` | Fixed in CI: watch uses deploy id from hook response |
+| `400` fetching logs | Bad `startTime` or workspace; script retries without time filter |
+| `update_failed` / `build_failed` | Real Render deploy failure — open **reviews** (or service) → **Deploys** in Render dashboard |
+
 ---
 
 ## EC2 server prerequisites

@@ -181,6 +181,10 @@ jobs:
           fi
           export DEPLOY_CREATED_AFTER="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           .github/scripts/render-deploy.sh "${HOOK}"
+          DEPLOY_ID=""
+          if [[ -f /tmp/render-deploy-id.txt ]]; then
+            DEPLOY_ID="$(cat /tmp/render-deploy-id.txt)"
+          fi
           if [[ "${{ inputs.wait_for_render }}" != "true" ]]; then
             echo "Skipping Render deploy watch (wait_for_render=false)."
             exit 0
@@ -190,7 +194,11 @@ jobs:
             exit 0
           fi
           export RENDER_API_KEY RENDER_OWNER_ID
-          .github/scripts/render-watch-deploy.sh "${SVC_ID}"
+          if [[ -n "${DEPLOY_ID}" ]]; then
+            .github/scripts/render-watch-deploy.sh "${SVC_ID}" "${DEPLOY_ID}"
+          else
+            .github/scripts/render-watch-deploy.sh "${SVC_ID}"
+          fi
 
       - name: Upload Render logs (dev)
         if: inputs.environment == 'dev' && inputs.wait_for_render == true
