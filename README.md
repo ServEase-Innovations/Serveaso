@@ -429,6 +429,8 @@ Runs installs for every workspace (including submodule packages).
 
 ## Run locally
 
+**Databases (local):** `docker compose up -d` starts Postgres and Mongo on `127.0.0.1`. Service env files use `POSTGRES_HOST=127.0.0.1`, `POSTGRES_DB=serveaso`, `MONGO_URI=mongodb://127.0.0.1:27017/serveaso` (see [`.env.local.example`](.env.local.example)). Tickets/reviews/coupons read Postgres via `services/payments/.env.development`. `npm run dev` runs migrations first (`predev`: baseline if needed, then incremental SQL + tickets Prisma). One-time full reset: `npm run dev:setup`. Skip on restart: `SKIP_DEV_MIGRATIONS=true npm run dev`.
+
 **All services** (non-clashing ports via env in the script):
 
 ```bash
