@@ -196,6 +196,7 @@ jobs:
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_OWNER_ID: ${{ secrets.RENDER_OWNER_ID }}
+          RENDER_DEPLOY_WAIT_SECONDS: "2400"
         run: |
           chmod +x .github/scripts/render-watch-deploy.sh
           if [[ -z "${RENDER_API_KEY}" || -z "${RENDER_SVC_ID}" ]]; then

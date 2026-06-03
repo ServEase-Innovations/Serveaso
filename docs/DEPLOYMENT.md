@@ -185,6 +185,9 @@ Disable **wait_for_render** only if you want to fire the hook and not verify the
 | Hook returns `dep-…` but watch shows a different `dep-…` | Watch uses deploy id from hook response when present |
 | `400` fetching logs | Bad `startTime` or workspace; script retries without time filter |
 | `update_failed` / `build_failed` | Real Render deploy failure — job should fail; open service → **Deploys** in Render dashboard |
+| Deploy stuck **`pending`** 20+ min then CI fails | Render queue or deploy skipped behind another; latest `main` exits **0** with warning unless `RENDER_WATCH_STRICT_TIMEOUT=true`. Check Render **Deploys** for `dep-…` and service **Suspended** state |
+
+Optional env for the watch step: `RENDER_DEPLOY_WAIT_SECONDS` (default **2400**), `RENDER_WATCH_STRICT_TIMEOUT=true` to fail on queue timeout.
 
 ---
 

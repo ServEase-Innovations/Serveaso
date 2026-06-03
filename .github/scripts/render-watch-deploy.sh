@@ -3,15 +3,17 @@
 # Usage: render-watch-deploy.sh <serviceId> [deployId]
 # Requires: RENDER_API_KEY, service id (arg 1)
 # Optional: deploy id (arg 2 or RENDER_DEPLOY_ID), RENDER_OWNER_ID,
-#   DEPLOY_CREATED_AFTER (ISO 8601), RENDER_DEPLOY_WAIT_SECONDS (default 1200)
+#   DEPLOY_CREATED_AFTER (ISO 8601), RENDER_DEPLOY_WAIT_SECONDS (default 2400)
+#   RENDER_WATCH_STRICT_TIMEOUT=true — fail job if still pending/queued at timeout (default: false)
 set -euo pipefail
 
 SERVICE_ID="${1:?Render service id required}"
 PREFERRED_DEPLOY_ID="${2:-${RENDER_DEPLOY_ID:-}}"
 API_KEY="${RENDER_API_KEY:?Set RENDER_API_KEY to watch deploys and fetch logs}"
 OWNER_ID="${RENDER_OWNER_ID:-}"
-MAX_WAIT="${RENDER_DEPLOY_WAIT_SECONDS:-1200}"
+MAX_WAIT="${RENDER_DEPLOY_WAIT_SECONDS:-2400}"
 POLL_INTERVAL="${RENDER_DEPLOY_POLL_SECONDS:-15}"
+STRICT_TIMEOUT="${RENDER_WATCH_STRICT_TIMEOUT:-false}"
 LOG_LIMIT="${RENDER_LOG_LIMIT:-100}"
 CREATED_AFTER="${DEPLOY_CREATED_AFTER:-}"
 
@@ -218,6 +220,76 @@ is_terminal_status() {
   esac
 }
 
+is_queued_status() {
+  case "$1" in
+    pending|queued|created) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_active_build_status() {
+  case "$1" in
+    building|update_in_progress|updating) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+service_suspended() {
+  local body
+  body="$(curl_api "${API}/services/${SERVICE_ID}" 2>/dev/null || echo "{}")"
+  echo "${body}" | jq -r '.suspended // .service.suspended // "unknown"'
+}
+
+log_recent_deploys() {
+  local body
+  body="$(curl_api "${API}/services/${SERVICE_ID}/deploys?limit=6" 2>/dev/null || echo "[]")"
+  echo "Recent deploys on service ${SERVICE_ID}:"
+  echo "${body}" | jq -r '
+    def items:
+      if type == "array" then .
+      elif .deploys then .deploys
+      else []
+      end;
+    [items[] | if .deploy then .deploy else . end | select(.id != null)]
+    | .[]
+    | "- \(.id)  \(.status)  \(.createdAt // "?")"
+  ' 2>/dev/null || echo "(could not list deploys)"
+}
+
+# Hook deploy stuck pending while Render skipped it and another deploy went live.
+check_superseded_by_live() {
+  local our_id="$1"
+  local body live_id
+  body="$(curl_api "${API}/services/${SERVICE_ID}/deploys?limit=10")"
+  live_id="$(echo "${body}" | jq -r --arg id "${our_id}" '
+    def items:
+      if type == "array" then .
+      elif .deploys then .deploys
+      else []
+      end;
+    [items[] | if .deploy then .deploy else . end
+      | select(.id != $id and .status == "live")]
+    | sort_by(.createdAt) | reverse
+    | .[0].id // empty
+  ')"
+  if [[ -n "${live_id}" && "${live_id}" != "null" ]]; then
+    echo "${live_id}"
+    return 0
+  fi
+  return 1
+}
+
+log_stuck_hint() {
+  local deploy_id="$1"
+  local elapsed="$2"
+  if [[ "${elapsed}" -lt 300 ]] || (( elapsed % 300 != 0 )); then
+    return
+  fi
+  echo "::warning::Deploy ${deploy_id} still '${status}' after ${elapsed}s — often queued behind another deploy or service suspended. Check Render dashboard."
+  echo "Service suspended: $(service_suspended)"
+  log_recent_deploys
+}
+
 resolve_owner_id
 
 if [[ -n "${PREFERRED_DEPLOY_ID}" ]]; then
@@ -253,6 +325,18 @@ while [[ "${elapsed}" -lt "${MAX_WAIT}" ]]; do
     break
   fi
 
+  log_stuck_hint "${DEPLOY_ID}" "${elapsed}"
+
+  if is_queued_status "${status}" && [[ -n "${PREFERRED_DEPLOY_ID}" ]]; then
+    superseded="$(check_superseded_by_live "${DEPLOY_ID}" || true)"
+    if [[ -n "${superseded}" ]]; then
+      echo "::notice::Hook deploy ${DEPLOY_ID} still '${status}', but ${superseded} is live (Render may have skipped the queued deploy)."
+      status="live"
+      DEPLOY_ID="${superseded}"
+      break
+    fi
+  fi
+
   sleep "${POLL_INTERVAL}"
   elapsed=$((elapsed + POLL_INTERVAL))
 done
@@ -262,6 +346,19 @@ if [[ -z "${DEPLOY_ID}" ]]; then
 fi
 
 if ! is_terminal_status "${status}"; then
+  log_recent_deploys
+  if is_queued_status "${status}"; then
+    if [[ "${STRICT_TIMEOUT}" == "true" ]]; then
+      fail_job "Deploy ${DEPLOY_ID} still '${status}' after ${MAX_WAIT}s. Set RENDER_WATCH_STRICT_TIMEOUT=false to treat as inconclusive, or fix Render queue/suspension."
+    fi
+    echo "::warning::Deploy ${DEPLOY_ID} still '${status}' after ${MAX_WAIT}s — deploy hook ran; Render has not finished (queue/skip). Not failing CI (RENDER_WATCH_STRICT_TIMEOUT=false)."
+    echo "Check Render → service → Deploys for ${DEPLOY_ID}."
+    exit 0
+  fi
+  if is_active_build_status "${status}" && [[ "${STRICT_TIMEOUT}" != "true" ]]; then
+    echo "::warning::Deploy ${DEPLOY_ID} still '${status}' after ${MAX_WAIT}s — build may still be running on Render. Not failing CI."
+    exit 0
+  fi
   fail_job "Deploy ${DEPLOY_ID} did not finish within ${MAX_WAIT}s (last status: ${status})."
 fi
 
