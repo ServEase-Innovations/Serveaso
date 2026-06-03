@@ -99,16 +99,32 @@ find_deploy_id() {
 
 deploy_status() {
   local deploy_id="$1"
-  local body
-  body="$(curl_api "${API}/services/${SERVICE_ID}/deploys/${deploy_id}")"
-  echo "${body}" | jq -r '.status // .deploy.status // "unknown"'
+  local body http_code
+  http_code="$(curl_api_body /tmp/render-deploy-status.json \
+    "${API}/services/${SERVICE_ID}/deploys/${deploy_id}")"
+  if [[ "${http_code}" != "200" ]]; then
+    echo "pending"
+    return
+  fi
+  jq -r '.status // .deploy.status // "unknown"' /tmp/render-deploy-status.json
+}
+
+fail_job() {
+  local message="$1"
+  echo "::error::${message}"
+  exit 1
 }
 
 deploy_started_at() {
   local deploy_id="$1"
-  local body
-  body="$(curl_api "${API}/services/${SERVICE_ID}/deploys/${deploy_id}")"
-  echo "${body}" | jq -r '.createdAt // .deploy.createdAt // empty'
+  local http_code
+  http_code="$(curl_api_body /tmp/render-deploy-status.json \
+    "${API}/services/${SERVICE_ID}/deploys/${deploy_id}")"
+  if [[ "${http_code}" != "200" ]]; then
+    echo ""
+    return
+  fi
+  jq -r '.createdAt // .deploy.createdAt // empty' /tmp/render-deploy-status.json
 }
 
 iso_to_epoch() {
@@ -213,40 +229,43 @@ fi
 echo "Waiting for Render deploy (max ${MAX_WAIT}s)..."
 sleep 8
 
-DEPLOY_ID=""
+DEPLOY_ID="${PREFERRED_DEPLOY_ID}"
 elapsed=0
+status="pending"
+
 while [[ "${elapsed}" -lt "${MAX_WAIT}" ]]; do
-  DEPLOY_ID="$(find_deploy_id)"
-  if [[ -n "${DEPLOY_ID}" ]]; then
-    status="$(deploy_status "${DEPLOY_ID}")"
-    echo "Deploy ${DEPLOY_ID}: ${status}"
-    started="$(deploy_started_at "${DEPLOY_ID}")"
-    fetch_logs "build" "${started}" "${BUILD_LOG_FILE}" || true
-    if is_terminal_status "${status}"; then
-      break
-    fi
-  else
-    echo "No deploy found yet (${elapsed}s)..."
+  if [[ -z "${DEPLOY_ID}" ]]; then
+    DEPLOY_ID="$(find_deploy_id)"
   fi
+  if [[ -z "${DEPLOY_ID}" ]]; then
+    echo "No deploy found yet (${elapsed}s)..."
+    sleep "${POLL_INTERVAL}"
+    elapsed=$((elapsed + POLL_INTERVAL))
+    continue
+  fi
+
+  status="$(deploy_status "${DEPLOY_ID}")"
+  echo "Deploy ${DEPLOY_ID}: ${status} (${elapsed}s)"
+  started="$(deploy_started_at "${DEPLOY_ID}")"
+  fetch_logs "build" "${started}" "${BUILD_LOG_FILE}" || true
+
+  if is_terminal_status "${status}"; then
+    break
+  fi
+
   sleep "${POLL_INTERVAL}"
   elapsed=$((elapsed + POLL_INTERVAL))
 done
 
 if [[ -z "${DEPLOY_ID}" ]]; then
-  echo "::warning::Timed out waiting for a Render deploy to appear. Check the Render dashboard."
-  exit 0
+  fail_job "Timed out waiting for a Render deploy to appear (service ${SERVICE_ID}). Check the Render dashboard."
 fi
 
-status="$(deploy_status "${DEPLOY_ID}")"
-started="$(deploy_started_at "${DEPLOY_ID}")"
+if ! is_terminal_status "${status}"; then
+  fail_job "Deploy ${DEPLOY_ID} did not finish within ${MAX_WAIT}s (last status: ${status})."
+fi
 
-while ! is_terminal_status "${status}" && [[ "${elapsed}" -lt "${MAX_WAIT}" ]]; do
-  sleep "${POLL_INTERVAL}"
-  elapsed=$((elapsed + POLL_INTERVAL))
-  status="$(deploy_status "${DEPLOY_ID}")"
-  echo "Deploy ${DEPLOY_ID}: ${status} (${elapsed}s)"
-  fetch_logs "build" "${started}" "${BUILD_LOG_FILE}" || true
-done
+started="$(deploy_started_at "${DEPLOY_ID}")"
 
 fetch_logs "build" "${started}" "${BUILD_LOG_FILE}" || true
 fetch_logs "app" "${started}" "${APP_LOG_FILE}" || true
@@ -270,20 +289,16 @@ append_summary "App logs (sample)" "${APP_LOG_FILE}"
 
 case "${status}" in
   live)
-    echo "Render deploy succeeded."
+    echo "Render deploy succeeded (deploy ${DEPLOY_ID})."
     exit 0
     ;;
   build_failed|update_failed)
-    echo "::error::Render deploy failed (${status}). Open this deploy in the Render dashboard for full logs."
-    echo "Deploy: https://dashboard.render.com (service → Deploys → ${DEPLOY_ID})"
-    exit 1
+    fail_job "Render deploy failed (${status}). Service ${SERVICE_ID}, deploy ${DEPLOY_ID}. Open Render → service → Deploys for full logs."
     ;;
   canceled|deactivated)
-    echo "::warning::Render deploy ended with status: ${status}"
-    exit 1
+    fail_job "Render deploy ended with status: ${status} (deploy ${DEPLOY_ID})."
     ;;
   *)
-    echo "::warning::Deploy did not reach a terminal state within ${MAX_WAIT}s (last: ${status})."
-    exit 0
+    fail_job "Unexpected Render deploy status: ${status} (deploy ${DEPLOY_ID}). Only 'live' is treated as success."
     ;;
 esac

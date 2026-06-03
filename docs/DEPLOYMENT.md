@@ -158,18 +158,27 @@ To **wait for the deploy**, **fail the job on build failure**, and show **build/
 
 **Payments only:** set `RENDER_API_KEY` + `RENDER_SERVICE_ID_PAYMENTS`; other services can omit service IDs until you want logs for them too.
 
-On **Deploy Backend** → `dev`, leave **wait_for_render** enabled (default) to poll until `live` or `build_failed`. Logs also upload as a workflow artifact (`render-logs-<service>-<run>`).
+On **Deploy Backend** → `dev`, leave **wait_for_render** enabled (default). The workflow runs three steps:
 
-If only deploy hooks are configured, dev deploy still works; the workflow prints a warning and does not wait for logs.
+1. **Render — resolve hook and service id**
+2. **Render — trigger deploy hook**
+3. **Render — wait for deploy** — polls until status is **`live`** (only success) or fails the job on `build_failed`, `update_failed`, timeout, or missing API secrets.
+
+Logs upload as a workflow artifact (`render-logs-<service>-<run>`).
+
+If **wait_for_render** is enabled, **`RENDER_API_KEY`** and **`RENDER_SERVICE_ID_*`** are **required** — the job fails if they are missing (no silent success).
+
+Disable **wait_for_render** only if you want to fire the hook and not verify the deploy in CI.
 
 **Troubleshooting**
 
 | Symptom | Likely cause |
 |---------|----------------|
+| GitHub green but Render failed | Old workflow run, or `wait_for_render` off / missing API secrets — upgrade to latest `main` |
 | `404` on “Resolving Render workspace” | Wrong `RENDER_SERVICE_ID_*` (must be `srv-…` from hook URL or dashboard, not `dep-…`) |
-| Hook returns `dep-…` but watch shows a different `dep-…` | Fixed in CI: watch uses deploy id from hook response |
+| Hook returns `dep-…` but watch shows a different `dep-…` | Watch uses deploy id from hook response when present |
 | `400` fetching logs | Bad `startTime` or workspace; script retries without time filter |
-| `update_failed` / `build_failed` | Real Render deploy failure — open **reviews** (or service) → **Deploys** in Render dashboard |
+| `update_failed` / `build_failed` | Real Render deploy failure — job should fail; open service → **Deploys** in Render dashboard |
 
 ---
 

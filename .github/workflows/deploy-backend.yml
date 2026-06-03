@@ -138,8 +138,9 @@ jobs:
           echo "install=$(jq -r '.install // "npm ci --omit=dev"' service.json)" >> "$GITHUB_OUTPUT"
           echo "pm2_script=$(jq -r '.pm2_script // ""' service.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy to Render (dev)
+      - name: Render — resolve hook and service id (dev)
         if: inputs.environment == 'dev'
+        id: render_cfg
         env:
           RENDER_HOOK_PAYMENTS: ${{ secrets.RENDER_DEPLOY_HOOK_PAYMENTS }}
           RENDER_HOOK_PROVIDERS: ${{ secrets.RENDER_DEPLOY_HOOK_PROVIDERS }}
@@ -150,8 +151,6 @@ jobs:
           RENDER_HOOK_TICKETS: ${{ secrets.RENDER_DEPLOY_HOOK_TICKETS }}
           RENDER_HOOK_IMAGE_UPLOADER: ${{ secrets.RENDER_DEPLOY_HOOK_IMAGE_UPLOADER }}
           RENDER_HOOK_CHAT: ${{ secrets.RENDER_DEPLOY_HOOK_CHAT }}
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_OWNER_ID: ${{ secrets.RENDER_OWNER_ID }}
           RENDER_SVC_ID_PAYMENTS: ${{ secrets.RENDER_SERVICE_ID_PAYMENTS }}
           RENDER_SVC_ID_PROVIDERS: ${{ secrets.RENDER_SERVICE_ID_PROVIDERS }}
           RENDER_SVC_ID_COUPONS: ${{ secrets.RENDER_SERVICE_ID_COUPONS }}
@@ -162,7 +161,6 @@ jobs:
           RENDER_SVC_ID_IMAGE_UPLOADER: ${{ secrets.RENDER_SERVICE_ID_IMAGE_UPLOADER }}
           RENDER_SVC_ID_CHAT: ${{ secrets.RENDER_SERVICE_ID_CHAT }}
         run: |
-          chmod +x .github/scripts/render-deploy.sh .github/scripts/render-watch-deploy.sh
           case "${{ matrix.service }}" in
             payments)       HOOK="${RENDER_HOOK_PAYMENTS}"; SVC_ID="${RENDER_SVC_ID_PAYMENTS}" ;;
             providers)      HOOK="${RENDER_HOOK_PROVIDERS}"; SVC_ID="${RENDER_SVC_ID_PROVIDERS}" ;;
@@ -179,25 +177,41 @@ jobs:
             echo "::error::Missing Render deploy hook secret for ${{ matrix.service }}. See docs/DEPLOYMENT.md"
             exit 1
           fi
+          {
+            echo "RENDER_HOOK<<EOF"
+            printf '%s\n' "${HOOK}"
+            echo "EOF"
+            echo "RENDER_SVC_ID=${SVC_ID}"
+          } >> "$GITHUB_ENV"
+
+      - name: Render — trigger deploy hook (dev)
+        if: inputs.environment == 'dev'
+        run: |
+          chmod +x .github/scripts/render-deploy.sh
           export DEPLOY_CREATED_AFTER="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          .github/scripts/render-deploy.sh "${HOOK}"
+          .github/scripts/render-deploy.sh "${RENDER_HOOK}"
+
+      - name: Render — wait for deploy (dev)
+        if: inputs.environment == 'dev' && inputs.wait_for_render == true
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_OWNER_ID: ${{ secrets.RENDER_OWNER_ID }}
+        run: |
+          chmod +x .github/scripts/render-watch-deploy.sh
+          if [[ -z "${RENDER_API_KEY}" || -z "${RENDER_SVC_ID}" ]]; then
+            echo "::error::wait_for_render is enabled but RENDER_API_KEY or RENDER_SERVICE_ID_${{ matrix.service }} is missing. Set both secrets or disable wait_for_render. See docs/DEPLOYMENT.md"
+            exit 1
+          fi
+          export RENDER_API_KEY RENDER_OWNER_ID
           DEPLOY_ID=""
           if [[ -f /tmp/render-deploy-id.txt ]]; then
             DEPLOY_ID="$(cat /tmp/render-deploy-id.txt)"
           fi
-          if [[ "${{ inputs.wait_for_render }}" != "true" ]]; then
-            echo "Skipping Render deploy watch (wait_for_render=false)."
-            exit 0
-          fi
-          if [[ -z "${RENDER_API_KEY}" || -z "${SVC_ID}" ]]; then
-            echo "::warning::RENDER_API_KEY or RENDER_SERVICE_ID_* not set — deploy triggered but logs/watch skipped."
-            exit 0
-          fi
-          export RENDER_API_KEY RENDER_OWNER_ID
           if [[ -n "${DEPLOY_ID}" ]]; then
-            .github/scripts/render-watch-deploy.sh "${SVC_ID}" "${DEPLOY_ID}"
+            .github/scripts/render-watch-deploy.sh "${RENDER_SVC_ID}" "${DEPLOY_ID}"
           else
-            .github/scripts/render-watch-deploy.sh "${SVC_ID}"
+            echo "::warning::Deploy hook did not return deploy.id — watching latest deploy for service."
+            .github/scripts/render-watch-deploy.sh "${RENDER_SVC_ID}"
           fi
 
       - name: Upload Render logs (dev)
