@@ -75,7 +75,7 @@ flowchart LR
 ### SQL apply order
 
 0. **`000_baseline_payments_schema.sql`** (via `apply-baseline.mjs` — creates `engagements` and core tables from `services/payments/src/config/db/schema.sql`; runs automatically before SQL when you `npm run db:migrate`)
-0b. **Prisma `tickets`** (`support_tickets*`) — runs automatically **before** SQL if those tables are missing (required for `094_epoch_db_columns.sql`)
+0b. **Prerequisites** — [`database/sql-dependencies.json`](../database/sql-dependencies.json) + `ensureSqlDependencies()` apply any required earlier SQL or Prisma **before** pending files (e.g. tickets before `094`)
 1. `010_in_app_notifications.sql`
 2. `020_pricing_plans.sql`
 3. `030_engagement_status_check.sql`
@@ -84,6 +84,27 @@ flowchart LR
 6. … (providers patches)
 
 Add new files as `NNN_description.sql` — never change applied filenames.
+
+When adding SQL that `UPDATE`s a table, register it in `sql-dependencies.json` (`fileRequires` / `ensureSql` / `ensurePrisma`).
+
+### Dependency audit (who creates what)
+
+| Tables / feature | Created by | SQL files that need it |
+|------------------|------------|-------------------------|
+| `engagements`, `serviceprovider`, core payments | **Baseline** (`payments/schema.sql`) | `030`, `040`, `070`, `091`, `092`, `093`, … |
+| `in_app_notifications` | `010_in_app_notifications.sql` | `094` (epoch columns) |
+| `pricing_plan`, `pricing_rule` | `020_pricing_plans.sql` | *(none later — standalone)* |
+| `serviceprovider_roles` | `050_…sql` | *(self)* |
+| `provider_*_slots` | `065_provider_slot_tables.sql` | `094` |
+| `coupons` v2 + `coupon_redemptions` | `090_coupons_v2_schema.sql` | `094` (not Prisma — coupons manifest is off) |
+| `service_days`, `service_day_otps` | `093_service_days_tables.sql` | `094` |
+| `support_tickets*` | **Prisma `tickets`** | `094` |
+| `engagement_events` | `092_engagement_events_table.sql` | *(self)* |
+| `provider_ledger` | baseline **or** `095_provider_ledger.sql` | *(optional)* |
+
+**Only cross-source ordering issue like tickets:** tables owned by **Prisma** while a **later SQL** file runs `UPDATE` on them (`094`). Coupons are covered by **`090` SQL** before `094`, not Prisma.
+
+**Self-contained SQL** (no external prereq beyond baseline): `020`, `050`, `060`, `065`, `080`, `091`, `092`, `093`, `095`.
 
 ### Prisma (shared `serveaso`)
 
