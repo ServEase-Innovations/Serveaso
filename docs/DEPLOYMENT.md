@@ -18,6 +18,8 @@ CI and `db:migrate` require the **`services/payments`** submodule (baseline sche
 
 If migrate fails with `relation "public.engagements" does not exist`, the dev DB never received baseline — re-run migrate on latest `database/` (baseline runs automatically) or run `npm run db:baseline` once.
 
+If migrate fails with `relation "public.support_tickets" does not exist` on `094_epoch_db_columns.sql`, use latest `database/` migrate (Prisma tickets runs before that SQL automatically).
+
 ### Database secrets (required for CI migrate)
 
 | Secret | Used when |

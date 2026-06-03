@@ -75,6 +75,7 @@ flowchart LR
 ### SQL apply order
 
 0. **`000_baseline_payments_schema.sql`** (via `apply-baseline.mjs` — creates `engagements` and core tables from `services/payments/src/config/db/schema.sql`; runs automatically before SQL when you `npm run db:migrate`)
+0b. **Prisma `tickets`** (`support_tickets*`) — runs automatically **before** SQL if those tables are missing (required for `094_epoch_db_columns.sql`)
 1. `010_in_app_notifications.sql`
 2. `020_pricing_plans.sql`
 3. `030_engagement_status_check.sql`
