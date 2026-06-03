@@ -144,18 +144,32 @@ Create a **Deploy Hook** in each Render service (Settings → Deploy Hook). Add 
 
 Dev deploy only **triggers** Render; it does not push env vars (configure those in the Render dashboard).
 
-### Why Render shows no deploy / stuck `pending`
+### Why GitHub does not trigger Render (but Manual Deploy works)
 
-Each Render service is connected to **its own GitHub repo** (e.g. reviews → `ServEase-Innovations/reviews`), not the Serveaso monorepo.
+Render **reviews** builds from **`ServEase-Innovations/reviews`**, not the Serveaso monorepo.
 
 | Problem | Fix |
 |---------|-----|
-| You only push **Serveaso** monorepo | Also push the **service repo** (`services/reviews` submodule → `reviews.git`). CI now runs **Render — push service repo** before deploy. |
-| Hook returns `dep-…` but stays **pending** forever | Another deploy may be running, service **suspended**, or commit not on remote branch. Check Render → **Deploys** and **Events**. |
-| Wrong repo on Render | Dashboard → service → **Settings** → confirm **Repository** matches the submodule (e.g. `reviews`, branch `main`). |
-| Auto Deploy off | Turn on **Auto-Deploy** for `main`, or rely on deploy hook / API from CI. |
+| **`GITHUB_TOKEN` cannot push `reviews`** | Add Serveaso secret **`GH_PAT`**: fine-grained PAT with **Contents: Read and write** on `reviews` (and other service repos you deploy). CI pushes `services/reviews` before triggering Render. |
+| Only monorepo pushed | Push submodule: `cd services/reviews && git push origin main`, or use **Deploy Backend** with `GH_PAT` set. |
+| Hook queued / `pending` | Use latest `main` on remote (push first). Enable **Auto-Deploy** on Render for `main` as backup. |
+| Manual Deploy works, CI does not | Almost always **missing `GH_PAT`** or wrong `RENDER_DEPLOY_HOOK_REVIEWS` secret. |
 
-CI trigger order (dev): **push submodule** → **API deploy** with `commitId` (or hook with `?ref=SHA`) → **wait for live**.
+**Recommended: auto-deploy when you push `reviews`**
+
+1. Copy workflow to reviews repo (already in submodule): `services/reviews/.github/workflows/trigger-render-deploy.yml`
+2. Push that file to **`reviews` `main`**
+3. In **reviews** repo (not Serveaso) → Secrets → `RENDER_DEPLOY_HOOK` = Render deploy hook URL
+
+Then every `git push` to **reviews** triggers Render (like manual deploy).
+
+**Monorepo Deploy Backend (dev)** order: push submodule (`GH_PAT`) → deploy hook (latest on branch, same as Manual) → wait for live.
+
+| Secret (Serveaso repo) | Purpose |
+|------------------------|---------|
+| `GH_PAT` | Push `services/*` submodules to their GitHub repos (**required** for Render deploy from monorepo) |
+| `RENDER_DEPLOY_HOOK_REVIEWS` | From Render → reviews → Deploy Hook |
+| `RENDER_API_KEY` + `RENDER_SERVICE_ID_REVIEWS` | Optional; watch deploy status |
 
 ### Render API (dev — deploy logs & status)
 

@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # Push a service submodule commit to its GitHub remote so Render (connected to that repo) can build it.
-# Requires: GITHUB_TOKEN with push access to the service repo (deploy job: contents: write).
+# Requires GH_PAT (recommended) or GITHUB_TOKEN with permission to push the service repo.
 set -euo pipefail
 
 SERVICE_PATH="${1:?Service path required (e.g. services/reviews)}"
 
-if [[ ! -d "${SERVICE_PATH}/.git" ]]; then
-  echo "Not a git repo: ${SERVICE_PATH} — skip sync"
-  exit 0
+GIT_TOKEN="${GH_PAT:-${GITHUB_TOKEN:-}}"
+if [[ -z "${GIT_TOKEN}" ]]; then
+  echo "::error::Set GitHub secret GH_PAT (PAT with contents:write on the service repo, e.g. reviews). GITHUB_TOKEN cannot push to other repos."
+  exit 1
 fi
 
-if [[ -z "${GITHUB_TOKEN:-}" ]]; then
-  echo "::warning::GITHUB_TOKEN not set — cannot push ${SERVICE_PATH} to GitHub. Render may deploy an old commit."
+if [[ ! -d "${SERVICE_PATH}/.git" ]]; then
+  echo "Not a git repo: ${SERVICE_PATH} — skip sync"
   exit 0
 fi
 
@@ -27,19 +28,28 @@ if [[ "${ORIGIN}" =~ ^https://github.com/(.+)\.git$ ]]; then
 elif [[ "${ORIGIN}" =~ ^git@github.com:(.+)\.git$ ]]; then
   REPO_PATH="${BASH_REMATCH[1]}"
 else
-  echo "::warning::Unsupported origin URL: ${ORIGIN} — push manually to trigger Render."
-  exit 0
+  echo "::error::Unsupported origin URL: ${ORIGIN}"
+  exit 1
 fi
 
-PUSH_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO_PATH}.git"
+PUSH_URL="https://x-access-token:${GIT_TOKEN}@github.com/${REPO_PATH}.git"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git config user.name "github-actions[bot]"
 
 if git ls-remote "${PUSH_URL}" "refs/heads/${BRANCH}" 2>/dev/null | grep -qF "${SHA}"; then
-  echo "Remote ${BRANCH} already at ${SHA} — no push needed"
+  echo "Remote ${BRANCH} already contains ${SHA}"
   exit 0
 fi
 
-echo "Pushing ${SHA} to github.com/${REPO_PATH} (${BRANCH}) for Render…"
-git push "${PUSH_URL}" "HEAD:refs/heads/${BRANCH}"
-echo "Git push complete."
+echo "Pushing ${SHA} → github.com/${REPO_PATH} (${BRANCH})…"
+if ! git push "${PUSH_URL}" "HEAD:refs/heads/${BRANCH}"; then
+  echo "::error::Push failed. Create fine-grained PAT secret GH_PAT on Serveaso repo with contents:write on ${REPO_PATH}."
+  exit 1
+fi
+
+if ! git ls-remote "${PUSH_URL}" "refs/heads/${BRANCH}" 2>/dev/null | grep -qF "${SHA}"; then
+  echo "::error::Push reported success but ${SHA} not found on origin/${BRANCH}."
+  exit 1
+fi
+
+echo "Git push verified on remote."
