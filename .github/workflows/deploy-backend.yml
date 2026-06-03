@@ -115,6 +115,8 @@ jobs:
     needs: [resolve-matrix, migrate-database]
     if: always() && needs.resolve-matrix.result == 'success' && (needs.migrate-database.result == 'success' || needs.migrate-database.result == 'skipped')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -177,19 +179,32 @@ jobs:
             echo "::error::Missing Render deploy hook secret for ${{ matrix.service }}. See docs/DEPLOYMENT.md"
             exit 1
           fi
+          SERVICE_PATH="$(jq -r '.path' service.json)"
           {
             echo "RENDER_HOOK<<EOF"
             printf '%s\n' "${HOOK}"
             echo "EOF"
             echo "RENDER_SVC_ID=${SVC_ID}"
+            echo "RENDER_SERVICE_PATH=${SERVICE_PATH}"
           } >> "$GITHUB_ENV"
 
-      - name: Render — trigger deploy hook (dev)
+      - name: Render — push service repo to GitHub (dev)
         if: inputs.environment == 'dev'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x .github/scripts/render-sync-submodule.sh
+          .github/scripts/render-sync-submodule.sh "${RENDER_SERVICE_PATH}"
+
+      - name: Render — trigger deploy (dev)
+        if: inputs.environment == 'dev'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SVC_ID: ${{ env.RENDER_SVC_ID }}
         run: |
           chmod +x .github/scripts/render-deploy.sh
           export DEPLOY_CREATED_AFTER="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          .github/scripts/render-deploy.sh "${RENDER_HOOK}"
+          .github/scripts/render-deploy.sh "${RENDER_HOOK}" "${RENDER_SERVICE_PATH}"
 
       - name: Render — wait for deploy (dev)
         if: inputs.environment == 'dev' && inputs.wait_for_render == true

@@ -144,6 +144,19 @@ Create a **Deploy Hook** in each Render service (Settings → Deploy Hook). Add 
 
 Dev deploy only **triggers** Render; it does not push env vars (configure those in the Render dashboard).
 
+### Why Render shows no deploy / stuck `pending`
+
+Each Render service is connected to **its own GitHub repo** (e.g. reviews → `ServEase-Innovations/reviews`), not the Serveaso monorepo.
+
+| Problem | Fix |
+|---------|-----|
+| You only push **Serveaso** monorepo | Also push the **service repo** (`services/reviews` submodule → `reviews.git`). CI now runs **Render — push service repo** before deploy. |
+| Hook returns `dep-…` but stays **pending** forever | Another deploy may be running, service **suspended**, or commit not on remote branch. Check Render → **Deploys** and **Events**. |
+| Wrong repo on Render | Dashboard → service → **Settings** → confirm **Repository** matches the submodule (e.g. `reviews`, branch `main`). |
+| Auto Deploy off | Turn on **Auto-Deploy** for `main`, or rely on deploy hook / API from CI. |
+
+CI trigger order (dev): **push submodule** → **API deploy** with `commitId` (or hook with `?ref=SHA`) → **wait for live**.
+
 ### Render API (dev — deploy logs & status)
 
 To **wait for the deploy**, **fail the job on build failure**, and show **build/app logs** in the Actions log and job summary, add:
