@@ -68,11 +68,13 @@ flowchart LR
 | [DB_Migrations](https://github.com/ServEase-Innovations/DB_Migrations) | Canonical repo (use as `database/` submodule) |
 | [`database/sql/`](../database/sql/) | Consolidated SQL from payments + providers |
 | [`database/prisma/tickets/`](../database/prisma/tickets/) | Support ticket Prisma migrations |
-| `npm run db:migrate` | Runs `npm run migrate` in `database/` |
+| `npm run db:baseline` | One-time core schema (`payments` `schema.sql`) if `engagements` is missing |
+| `npm run db:migrate` | Runs baseline (if needed) + incremental SQL + Prisma in `database/` |
 | Payments / tickets startup | **No DDL** — checks only (tickets warns if tables missing) |
 
 ### SQL apply order
 
+0. **`000_baseline_payments_schema.sql`** (via `apply-baseline.mjs` — creates `engagements` and core tables from `services/payments/src/config/db/schema.sql`; runs automatically before SQL when you `npm run db:migrate`)
 1. `010_in_app_notifications.sql`
 2. `020_pricing_plans.sql`
 3. `030_engagement_status_check.sql`

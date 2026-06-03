@@ -14,6 +14,10 @@ cd Serveaso-BE
 npm run db:install && npm run db:migrate
 ```
 
+CI and `db:migrate` require the **`services/payments`** submodule (baseline schema). Workflows use `submodules: recursive`.
+
+If migrate fails with `relation "public.engagements" does not exist`, the dev DB never received baseline — re-run migrate on latest `database/` (baseline runs automatically) or run `npm run db:baseline` once.
+
 ### Database secrets (required for CI migrate)
 
 | Secret | Used when |
