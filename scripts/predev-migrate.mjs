@@ -61,15 +61,22 @@ if (!fs.existsSync(dbModules)) {
 }
 
 run("db:baseline", ["run", "db:baseline"]);
-run("db:migrate", ["run", "db:migrate"]);
 
-const ownershipFix = spawnSync("node", ["scripts/fix-db-ownership.mjs"], {
+const pgHost = (process.env.POSTGRES_HOST || process.env.DB_HOST || "127.0.0.1").trim();
+const isLocalPg = pgHost === "127.0.0.1" || pgHost === "localhost";
+const ownershipFix = isLocalPg
+  ? spawnSync("node", ["scripts/fix-db-ownership.mjs"], {
   cwd: root,
   stdio: "inherit",
   env: process.env,
-});
-if (ownershipFix.status !== 0) {
+})
+  : { status: 0 };
+if (!isLocalPg) {
+  console.log(`[predev] skipping ownership fix (remote Postgres ${pgHost})`);
+} else if (ownershipFix.status !== 0) {
   console.warn("[predev] ownership fix skipped (non-fatal for some setups)");
 }
+
+run("db:migrate", ["run", "db:migrate"]);
 
 console.log("[predev] Database migrations up to date");
