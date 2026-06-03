@@ -10,7 +10,14 @@
  */
 const fs = require("fs");
 const path = require("path");
-const dotenv = require("dotenv");
+
+function tryLoadDotenv() {
+  try {
+    return require("dotenv");
+  } catch {
+    return null;
+  }
+}
 
 function parseDatabaseFromUrl(url) {
   if (!url || !String(url).trim()) return undefined;
@@ -40,6 +47,11 @@ function loadMonorepoPostgresEnv(options = {}) {
   if (!root) return { root: null, loaded: [] };
 
   const loaded = [];
+  const dotenv = tryLoadDotenv();
+  if (!dotenv) {
+    syncPostgresDbAliases(process.env);
+    return { root, loaded };
+  }
   for (const name of [".env.local", ".env.monorepo", ".env"]) {
     const filePath = path.join(root, name);
     if (!fs.existsSync(filePath)) continue;
