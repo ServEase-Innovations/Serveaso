@@ -10,7 +10,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 
 | Area | Status |
 |------|--------|
-| Phase 0 — Blockers | 1 / 6 |
+| Phase 0 — Blockers | 2 / 6 |
 | Phase 1 — Secure & stable | 0 / 6 |
 | Phase 2 — Quality & observability | 0 / 5 |
 | Phase 3 — Polish | 0 / 4 |
@@ -131,7 +131,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 ### P0 — blockers
 
 - [x] **S1** — Auth0 M2M secret hardcoded in `services/utils/controllers/mongoDBControllers.js`: moved to `AUTH0_*` env via `lib/auth0Management.js` *(rotate client secret in Auth0 dashboard — was exposed in git)*
-- [ ] **S2** — Unsigned Razorpay webhook at `POST /api/v2/createEngagements/webhook` in `createEngagements.js`: mount signed handler from `webhooks.js` or add HMAC verify; disable unsigned route
+- [x] **S2** — Razorpay webhook at `POST /api/v2/createEngagements/webhook`: HMAC verify via `razorpayWebhook.service.js` + `RAZORPAY_WEBHOOK_SECRET` *(set secret in Razorpay Dashboard + prod env)*
 - [ ] **S3** — Open admin / settings APIs (utils: `PUT /api/platform-settings`, `/delete-all`, `/records/*`; payments admin routes): require Auth0 JWT + admin role or shared secret
 - [ ] **S4** — Default dev secrets in prod path (`serveaso-test-push-secret`, `DEV_INTERNAL_SECRET` in payments internal routes): fail startup if unset when `NODE_ENV=production`
 - [ ] **S5** — Real IPs/passwords in `.env.example` files: replace with localhost placeholders
@@ -188,7 +188,7 @@ Mark `[x]` when done. Work in order within each phase.
 ### Phase 0 — Blockers (week 1)
 
 - [x] **Step 1 · S1** — Rotate Auth0 M2M creds; move to env; remove from `mongoDBControllers.js` *(utils — code done; **rotate secret in Auth0** and set prod env)*
-- [ ] **Step 2 · S2** — Wire verified Razorpay webhook only; test with Razorpay dashboard *(payments, ~4h)*
+- [x] **Step 2 · S2** — Wire verified Razorpay webhook only; test with Razorpay dashboard *(payments — code done; configure webhook URL + secret in Razorpay)*
 - [ ] **Step 3 · S5** — Scrub all `.env.example` files (no real hosts/secrets) *(monorepo, ~1h)*
 - [ ] **Step 4 · S4** — Production secret validation at startup (push, internal, admin) *(all services, ~3h)*
 - [ ] **Step 5 · DB-1** — Run `db:migrate` on prod; verify 096/097 applied *(DevOps, ~2h)*
