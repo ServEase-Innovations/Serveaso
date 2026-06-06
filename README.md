@@ -17,6 +17,8 @@ This **parent** repository uses **Git submodules** to pin the backend services a
 | `services/tickets` | Support tickets / complaints (PostgreSQL / Prisma) | [ServEase-Innovations/tickets](https://github.com/ServEase-Innovations/tickets) |
 | `apps/servase-ui` | **React (CRA) + TypeScript** customer UI for Servease | [ServEase-Innovations/ServEase_UI](https://github.com/ServEase-Innovations/ServEase_UI) |
 
+**Production checklist:** [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) — security, migrations, ops, and phased go-live steps (mark items `[x]` when done).
+
 ## System architecture
 
 **ServEase** is a **monorepo of submodules** (one Git history per app). The **web UI** runs in the browser, authenticates with **Auth0 (OIDC)**, and calls **backends over HTTPS**. **Payments** also exposes a **WebSocket (Socket.IO)** for live updates (e.g. new engagements, in-app events). In local development, the UI targets several localhost ports; see the [Run locally](#run-locally) table. In production, each service is deployed with its own base URL, wired through environment variables.
@@ -555,3 +557,11 @@ docker-compose.yml     # optional local databases
 ## Port note (payments vs providers)
 
 Both upstream **payments** and **providers** often default to port **4000**. When you run `npm run dev` from this monorepo root, **payments** is started with `PORT=4100` so it does not collide with **providers** on **4000**. If you run **payments** only inside `services/payments`, set `PORT` yourself if **providers** is also on the same machine.
+
+## Production readiness
+
+Living go-live checklist with checkboxes to track progress:
+
+- **[Production readiness](docs/PRODUCTION_READINESS.md)** — architecture audit, P0 security blockers, DB migration checklist, observability, and phased execution plan (21 steps).
+
+Related: [DEPLOYMENT](docs/DEPLOYMENT.md) · [DATABASE_MIGRATIONS](docs/DATABASE_MIGRATIONS.md) · [DATABASE_SCHEMA](docs/DATABASE_SCHEMA.md)
