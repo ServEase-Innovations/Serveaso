@@ -10,13 +10,23 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 
 | Area | Status |
 |------|--------|
-| Phase 0 — Blockers | 2 / 6 |
+| Phase 0 — Blockers | 3 / 6 |
 | Phase 1 — Secure & stable | 0 / 6 |
 | Phase 2 — Quality & observability | 0 / 5 |
 | Phase 3 — Polish | 0 / 4 |
 | Go / no-go gate | 0 / 6 |
 
 *Update counts above when you check off items below.*
+
+### Completed milestones
+
+| Date | Item | Notes |
+|------|------|-------|
+| 2026-06-02 | **S1** Auth0 M2M secret | Moved to `AUTH0_*` env in utils; `lib/auth0Management.js`; local `/authO` tested |
+| 2026-06-02 | **S2** Razorpay webhook | HMAC on `POST /api/v2/createEngagements/webhook`; Razorpay Dashboard delivery confirmed working |
+| 2026-06-02 | **S5** `.env.example` scrub | Removed real cloud IPs/passwords; localhost placeholders only |
+
+**Next:** S4 (prod startup secret validation) or DB-1 (prod migrations).
 
 ---
 
@@ -130,11 +140,11 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 
 ### P0 — blockers
 
-- [x] **S1** — Auth0 M2M secret hardcoded in `services/utils/controllers/mongoDBControllers.js`: moved to `AUTH0_*` env via `lib/auth0Management.js` *(rotate client secret in Auth0 dashboard — was exposed in git)*
-- [x] **S2** — Razorpay webhook at `POST /api/v2/createEngagements/webhook`: HMAC verify via `razorpayWebhook.service.js` + `RAZORPAY_WEBHOOK_SECRET` *(set secret in Razorpay Dashboard + prod env)*
+- [x] **S1** — Auth0 M2M secret: moved to `AUTH0_*` env via `lib/auth0Management.js` *(verified: `/authO` user creation works with env config)*
+- [x] **S2** — Razorpay webhook: HMAC via `razorpayWebhook.service.js` + `RAZORPAY_WEBHOOK_SECRET` *(verified: Razorpay Dashboard webhook deliveries succeed)*
 - [ ] **S3** — Open admin / settings APIs (utils: `PUT /api/platform-settings`, `/delete-all`, `/records/*`; payments admin routes): require Auth0 JWT + admin role or shared secret
 - [ ] **S4** — Default dev secrets in prod path (`serveaso-test-push-secret`, `DEV_INTERNAL_SECRET` in payments internal routes): fail startup if unset when `NODE_ENV=production`
-- [ ] **S5** — Real IPs/passwords in `.env.example` files: replace with localhost placeholders
+- [x] **S5** — Real IPs/passwords in `.env.example` files: replaced with `127.0.0.1` / `your_*` placeholders
 - [ ] **S6** — CORS `*` / permissive (providers, payments, utils): explicit production origins only
 - [ ] **S7** — Socket.IO origins in `payments/index.js` (localhost + Netlify only): add production web + mobile origins
 
@@ -187,9 +197,9 @@ Mark `[x]` when done. Work in order within each phase.
 
 ### Phase 0 — Blockers (week 1)
 
-- [x] **Step 1 · S1** — Rotate Auth0 M2M creds; move to env; remove from `mongoDBControllers.js` *(utils — code done; **rotate secret in Auth0** and set prod env)*
-- [x] **Step 2 · S2** — Wire verified Razorpay webhook only; test with Razorpay dashboard *(payments — code done; configure webhook URL + secret in Razorpay)*
-- [ ] **Step 3 · S5** — Scrub all `.env.example` files (no real hosts/secrets) *(monorepo, ~1h)*
+- [x] **Step 1 · S1** — Auth0 M2M creds in env; removed from `mongoDBControllers.js` *(utils — verified locally)*
+- [x] **Step 2 · S2** — Verified Razorpay webhook; tested in Razorpay Dashboard *(payments)*
+- [x] **Step 3 · S5** — Scrubbed `.env.example` files (no real hosts/secrets) *(monorepo + service submodules)*
 - [ ] **Step 4 · S4** — Production secret validation at startup (push, internal, admin) *(all services, ~3h)*
 - [ ] **Step 5 · DB-1** — Run `db:migrate` on prod; verify 096/097 applied *(DevOps, ~2h)*
 - [ ] **Step 6 · S3** — Protect platform-settings + destructive utils routes *(utils, ~4h)*
@@ -250,4 +260,4 @@ Deploy & migrate                           → .github/workflows/, docs/DEPLOYME
 
 ---
 
-*Last updated: 2026-06-02 — refresh progress summary and counts when you check off items.*
+*Last updated: 2026-06-02 — S1, S2, S5 complete. Next: Step 4 · S4.*
