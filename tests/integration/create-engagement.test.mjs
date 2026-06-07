@@ -1,26 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { serviceUrls, integrationSecrets } from "./lib/config.mjs";
+import { serviceUrls } from "./lib/config.mjs";
 import { httpJson } from "./lib/http.mjs";
+import { internalAuthHeaders } from "./lib/auth.mjs";
+import { futureYmd } from "./lib/dates.mjs";
 
 const createUrl = `${serviceUrls.payments}/api/v2/createEngagements`;
-
-function authHeaders() {
-  const secret = integrationSecrets.internalSecret;
-  return secret ? { "X-Internal-Secret": secret } : {};
-}
-
-/** Far-future date to avoid accidental overlap with real bookings. */
-function futureStartDate() {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() + 2);
-  return d.toISOString().slice(0, 10);
-}
 
 describe("POST /api/v2/createEngagements (DEV live)", () => {
   it("returns 400 when required fields are missing", async () => {
     const { status, json } = await httpJson("POST", createUrl, {
-      headers: authHeaders(),
+      headers: internalAuthHeaders(),
       body: {},
     });
     assert.equal(status, 400);
@@ -29,10 +19,10 @@ describe("POST /api/v2/createEngagements (DEV live)", () => {
 
   it("returns 404 for unknown customer id", async () => {
     const { status, json } = await httpJson("POST", createUrl, {
-      headers: authHeaders(),
+      headers: internalAuthHeaders(),
       body: {
         customerid: 999_999_999,
-        start_date: futureStartDate(),
+        start_date: futureYmd(),
         start_time: "07:00",
         booking_type: "ON_DEMAND",
         service_type: "COOK",
@@ -57,10 +47,10 @@ describe("POST /api/v2/createEngagements (DEV live)", () => {
     }
 
     const { status, json } = await httpJson("POST", createUrl, {
-      headers: authHeaders(),
+      headers: internalAuthHeaders(),
       body: {
         customerid: customerId,
-        start_date: futureStartDate(),
+        start_date: futureYmd(),
         start_time: "09:00",
         booking_type: "ON_DEMAND",
         service_type: "COOK",

@@ -1,45 +1,45 @@
 # Integration tests (TEST-1)
 
-Smoke tests against **DEV** Render URLs: health, Razorpay webhook HMAC, and create engagement.
+Smoke tests against **DEV** Render URLs covering health, core business APIs, and booking flows.
 
 ## Run locally
 
 ```bash
-# From monorepo root (uses ENV_MATRIX defaults)
-npm run test:integration
-
-# Optional secrets for full coverage
-export RAZORPAY_WEBHOOK_SECRET='...'          # live signed webhook test
-export INTEGRATION_TEST_CUSTOMER_ID='54'      # happy-path create (creates PAYMENT_PENDING row)
-export INTEGRATION_INTERNAL_SECRET='...'      # if DEV enforces JWT on mutations
-
 npm run test:integration
 ```
 
-## What is tested
+Optional env for deeper coverage:
 
-| Test file | Coverage |
-|-----------|----------|
-| `health.test.mjs` | `/health` on utils, coupons, reviews, payments, providers; `/ready` on payments |
-| `webhook-hmac.test.mjs` | Unit HMAC verify + live webhook probes |
-| `create-engagement.test.mjs` | Validation 400, unknown customer 404, optional create 201 |
+```bash
+export RAZORPAY_WEBHOOK_SECRET='...'
+export INTEGRATION_TEST_CUSTOMER_ID='54'
+export INTEGRATION_TEST_PROVIDER_ID='4202'
+export INTEGRATION_INTERNAL_SECRET='...'
+```
 
-## CI/CD (GitHub Actions)
+## Test suites
 
-Workflow: **Integration Tests (DEV)** (`.github/workflows/integration-tests.yml`)
+| File | Business area |
+|------|----------------|
+| `health.test.mjs` | Core service liveness (`/health`, `/ready` fallbacks) |
+| `business-infrastructure.test.mjs` | tickets, preferences, chat, image-uploader health + DB readiness |
+| `business-platform.test.mjs` | Utils — public platform settings, customer email lookup |
+| `business-registration.test.mjs` | Providers — check-email / check-mobile before signup |
+| `business-pricing.test.mjs` | Payments — pricing plans, on-demand & monthly quotes |
+| `business-coupons.test.mjs` | Coupons list/validate + payments coupon proxy |
+| `business-discovery.test.mjs` | Payments — monthly provider search (`nearby-monthly`) |
+| `business-reviews.test.mjs` | Reviews — provider ratings list, eligibility |
+| `business-booking-flow.test.mjs` | Quote → create engagement (needs test customer id) |
+| `webhook-hmac.test.mjs` | Razorpay webhook HMAC (unit + live) |
+| `create-engagement.test.mjs` | Create engagement validation & error paths |
 
-| Trigger | When |
-|---------|------|
-| **Push to `main`** | Changes under `tests/integration/`, payments webhook tests, or workflow file |
-| **Daily schedule** | 06:00 UTC — continuous DEV smoke |
-| **Deploy Backend → dev** | After successful dev deploy (`run_smoke_tests: true`, default) |
-| **Manual** | Actions → Run workflow; optional happy-path create via input |
+## CI/CD
 
-URL overrides (optional repo secrets): `DEV_PAYMENTS_URL`, `DEV_PROVIDERS_URL`, `DEV_UTILS_URL`, etc.  
-Unset secrets fall back to defaults in `lib/config.mjs`.
+Workflow: **Integration Tests (DEV)** — push to `main` (test paths), daily 06:00 UTC, after dev deploy, manual.
+
+URL overrides: optional `DEV_*_URL` repo secrets; defaults in `lib/config.mjs`.
 
 ## Notes
 
-- **payments/providers `/health`**: requires OPS-1 deploy on Render; liveness probes used as fallback.
-- **Webhook verify on DEV**: `payments-vyqp` enforces HMAC; unit tests always validate the algorithm.
-- **Happy-path create** inserts a real `PAYMENT_PENDING` engagement — use a dedicated test customer id.
+- **nearby-monthly**: skipped when DEV returns 500 (known SQL/schema issue to fix on payments).
+- **Happy-path create** inserts `PAYMENT_PENDING` — use a dedicated test customer id.
