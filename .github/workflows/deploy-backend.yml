@@ -422,6 +422,7 @@ jobs:
           path: deploy-reports
 
       - name: Send deployment email
+        continue-on-error: true
         env:
           DEPLOY_NOTIFY_EMAILS: ${{ secrets.DEPLOY_NOTIFY_EMAILS }}
           SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}

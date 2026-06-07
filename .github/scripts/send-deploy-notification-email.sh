@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 # Merge deploy-report-*.json artifacts and send HTML email via SendGrid.
-# Env: DEPLOY_NOTIFY_EMAILS (comma-separated), SENDGRID_API_KEY,
-#      DEPLOY_NOTIFY_FROM (optional), WORKFLOW_STATUS, ENVIRONMENT, BUILD_VERSION,
-#      WORKFLOW_URL, MIGRATE_STATUS (optional)
 set -euo pipefail
 
 REPORTS_DIR="${1:-./deploy-reports}"
@@ -21,90 +18,103 @@ if [[ -z "${EMAILS}" ]]; then
 fi
 
 if [[ -z "${API_KEY}" ]]; then
-  echo "::notice::SENDGRID_API_KEY not set — skipping deployment email. See docs/DEPLOYMENT.md"
+  echo "::notice::SENDGRID_API_KEY not set — skipping deployment email."
   exit 0
 fi
 
 mapfile -t REPORT_FILES < <(find "${REPORTS_DIR}" -name 'deploy-report.json' -type f 2>/dev/null | sort)
 if [[ ${#REPORT_FILES[@]} -eq 0 ]]; then
   echo "::warning::No deploy-report.json files found under ${REPORTS_DIR}"
+  ls -laR "${REPORTS_DIR}" 2>/dev/null || true
   exit 0
 fi
 
 MERGED="$(mktemp)"
-jq -s '.' "${REPORT_FILES[@]}" > "${MERGED}"
+VALID_FILES=()
+for f in "${REPORT_FILES[@]}"; do
+  if jq -e . "${f}" >/dev/null 2>&1; then
+    VALID_FILES+=("${f}")
+  else
+    echo "::warning::Skipping invalid deploy report: ${f}"
+    head -c 200 "${f}" 2>/dev/null || true
+    echo ""
+  fi
+done
 
-SERVICE_COUNT="$(jq 'length' "${MERGED}")"
-SUCCESS_COUNT="$(jq '[.[] | select(.jobStatus == "success")] | length' "${MERGED}")"
-FAILED_COUNT="$(jq '[.[] | select(.jobStatus != "success")] | length' "${MERGED}")"
-
-if [[ "${WORKFLOW_STATUS}" == "success" && "${FAILED_COUNT}" -eq 0 ]]; then
-  OVERALL="SUCCESS"
-  SUBJECT="✅ Serveaso deploy ${ENVIRONMENT} — ${BUILD_VERSION} (${SUCCESS_COUNT}/${SERVICE_COUNT} services)"
-else
-  OVERALL="ATTENTION"
-  SUBJECT="⚠️ Serveaso deploy ${ENVIRONMENT} — ${BUILD_VERSION} (${SUCCESS_COUNT} ok, ${FAILED_COUNT} failed)"
+if [[ ${#VALID_FILES[@]} -eq 0 ]]; then
+  echo "::warning::No valid deploy-report.json files to merge."
+  exit 0
 fi
 
-TABLE_ROWS="$(jq -r '
-  .[] |
-  "<tr>" +
-  "<td>" + .label + "</td>" +
-  "<td><code>" + .service + "</code></td>" +
-  "<td>" + .jobStatus + "</td>" +
-  "<td>" + (if .renderStatus != "" then .renderStatus else "—" end) + "</td>" +
-  "<td><code>" + (if .renderDeployId != "" then .renderDeployId else (if .buildVersion != "" then .buildVersion else "—" end) end) + "</code></td>" +
-  "<td><code>" + (if (.submoduleSha // "") != "" then .submoduleSha[0:8] else .commitSha[0:8] end) + "</code></td>" +
-  "</tr>"
-' "${MERGED}")"
-
-HTML="$(cat <<EOF
-<!DOCTYPE html>
-<html>
-<body style="font-family: system-ui, sans-serif; color: #222;">
-  <h2>Serveaso backend deployment — ${ENVIRONMENT}</h2>
-  <p><strong>Overall:</strong> ${OVERALL}</p>
-  <ul>
-    <li><strong>Build version:</strong> <code>${BUILD_VERSION}</code></li>
-    <li><strong>Workflow status:</strong> ${WORKFLOW_STATUS}</li>
-    <li><strong>DB migrations:</strong> ${MIGRATE_STATUS}</li>
-    <li><strong>Services:</strong> ${SUCCESS_COUNT} succeeded, ${FAILED_COUNT} failed (of ${SERVICE_COUNT})</li>
-    <li><strong>Workflow run:</strong> <a href="${WORKFLOW_URL}">${WORKFLOW_URL}</a></li>
-  </ul>
-  <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; font-size: 14px;">
-    <thead>
-      <tr style="background: #f4f4f4;">
-        <th>Service</th>
-        <th>Key</th>
-        <th>CI job</th>
-        <th>Render status</th>
-        <th>Deploy / build id</th>
-        <th>Commit</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${TABLE_ROWS}
-    </tbody>
-  </table>
-  <p style="color: #666; font-size: 12px;">Generated at $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC</p>
-</body>
-</html>
-EOF
-)"
-
-TO_JSON="$(printf '%s' "${EMAILS}" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$' | jq -R '{email: .}' | jq -s '.')"
+jq -s '.' "${VALID_FILES[@]}" > "${MERGED}"
 
 PAYLOAD="$(jq -n \
   --arg from "${FROM}" \
-  --arg subject "${SUBJECT}" \
-  --arg html "${HTML}" \
-  --argjson to "${TO_JSON}" \
-  '{
+  --arg emails "${EMAILS}" \
+  --arg environment "${ENVIRONMENT}" \
+  --arg buildVersion "${BUILD_VERSION}" \
+  --arg workflowStatus "${WORKFLOW_STATUS}" \
+  --arg migrateStatus "${MIGRATE_STATUS}" \
+  --arg workflowUrl "${WORKFLOW_URL}" \
+  --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --slurpfile reports "${MERGED}" \
+  '
+  def short_sha:
+    if (.submoduleSha // "") != "" then .submoduleSha
+    elif (.commitSha // "") != "" then .commitSha
+    else "-" end
+    | if length > 8 then .[0:8] else . end;
+
+  def deploy_cell:
+    if (.renderDeployId // "") != "" then .renderDeployId
+    elif (.buildVersion // "") != "" then .buildVersion
+    else "-" end;
+
+  ($reports[0]) as $rows |
+  ($rows | length) as $total |
+  ($rows | map(select(.jobStatus == "success")) | length) as $ok |
+  ($total - $ok) as $failed |
+  (if $workflowStatus == "success" and $failed == 0 then
+    "[OK] Serveaso deploy \($environment) - \($buildVersion) (\($ok)/\($total) services)"
+  else
+    "[!] Serveaso deploy \($environment) - \($buildVersion) (\($ok) ok, \($failed) failed)"
+  end) as $subject |
+  (if $workflowStatus == "success" and $failed == 0 then "SUCCESS" else "ATTENTION" end) as $overall |
+  ($rows | map(
+    "<tr><td>" + (.label // .service // "-") + "</td>"
+    + "<td><code>" + (.service // "-") + "</code></td>"
+    + "<td>" + (.jobStatus // "-") + "</td>"
+    + "<td>" + (if (.renderStatus // "") != "" then .renderStatus else "-" end) + "</td>"
+    + "<td><code>" + deploy_cell + "</code></td>"
+    + "<td><code>" + short_sha + "</code></td></tr>"
+  ) | join("")) as $tableRows |
+  ($emails | split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length > 0)) | map({email: .})) as $to |
+  {
     personalizations: [{to: $to}],
     from: {email: $from, name: "Serveaso Deploy"},
     subject: $subject,
-    content: [{type: "text/html", value: $html}]
-  }')"
+    content: [{
+      type: "text/html",
+      value:
+        "<!DOCTYPE html><html><body style=\"font-family:system-ui,sans-serif;color:#222\">"
+        + "<h2>Serveaso backend deployment - \($environment)</h2>"
+        + "<p><strong>Overall:</strong> \($overall)</p>"
+        + "<ul>"
+        + "<li><strong>Build version:</strong> <code>\($buildVersion)</code></li>"
+        + "<li><strong>Workflow status:</strong> \($workflowStatus)</li>"
+        + "<li><strong>DB migrations:</strong> \($migrateStatus)</li>"
+        + "<li><strong>Services:</strong> \($ok) succeeded, \($failed) failed (of \($total))</li>"
+        + "<li><strong>Workflow run:</strong> <a href=\"\($workflowUrl)\">\($workflowUrl)</a></li>"
+        + "</ul>"
+        + "<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse:collapse;font-size:14px\">"
+        + "<thead><tr style=\"background:#f4f4f4\">"
+        + "<th>Service</th><th>Key</th><th>CI job</th><th>Render status</th><th>Deploy / build id</th><th>Commit</th>"
+        + "</tr></thead><tbody>" + $tableRows + "</tbody></table>"
+        + "<p style=\"color:#666;font-size:12px\">Generated at \($generatedAt) UTC</p>"
+        + "</body></html>"
+    }]
+  }
+  ')"
 
 HTTP_CODE="$(curl -sS -o /tmp/sendgrid-response.json -w "%{http_code}" \
   -X POST "https://api.sendgrid.com/v3/mail/send" \
@@ -116,5 +126,4 @@ if [[ "${HTTP_CODE}" == "202" ]]; then
   echo "Deployment notification email sent to: ${EMAILS}"
 else
   echo "::warning::SendGrid returned HTTP ${HTTP_CODE}: $(cat /tmp/sendgrid-response.json)"
-  exit 0
 fi
