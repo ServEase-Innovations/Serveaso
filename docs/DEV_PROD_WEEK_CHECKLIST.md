@@ -43,11 +43,11 @@ Generate once per env: `openssl rand -hex 32`
 
 ### D. Netlify UI (build-time — redeploy after changes)
 
-- [ ] `REACT_APP_PAYMENTS_URL` → current Render payments host
+- [ ] `REACT_APP_PAYMENTS_URL` → `https://payments-vyqp.onrender.com`
 - [ ] `REACT_APP_SOCKET_URL` → same as payments
-- [ ] `REACT_APP_PROVIDER_URL` → current Render providers host
-- [ ] `REACT_APP_UTILS_URL` → current Render utils host (not legacy host)
-- [ ] `REACT_APP_PREFERENCES_URL`, `REACT_APP_COUPONS_URL`, `REACT_APP_REVIEWS_URL`, `REACT_APP_TICKETS_URL`, `REACT_APP_CHAT_URL`
+- [ ] `REACT_APP_PROVIDER_URL` → `https://providers-k8w7.onrender.com`
+- [ ] `REACT_APP_UTILS_URL` → `https://utils-jo6c.onrender.com`
+- [ ] `REACT_APP_PREFERENCES_URL`, `REACT_APP_COUPONS_URL`, `REACT_APP_REVIEWS_URL` (`reviews-7aal`), `REACT_APP_TICKETS_URL` (`tickets-3gc8`), `REACT_APP_CHAT_URL`, `REACT_APP_IMAGE_UPLOADER_URL`
 - [ ] Auth0 `REACT_APP_AUTH0_*` → dev tenant
 - [ ] `REACT_APP_ADMIN_PUSH_SECRET` aligned (see C)
 

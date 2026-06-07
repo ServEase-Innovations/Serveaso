@@ -6,12 +6,12 @@ export const serviceUrls = {
   payments: (
     process.env.INTEGRATION_PAYMENTS_URL ||
     process.env.REACT_APP_PAYMENTS_URL ||
-    "https://payments-j5id.onrender.com"
+    "https://payments-vyqp.onrender.com"
   ).replace(/\/$/, ""),
   providers: (
     process.env.INTEGRATION_PROVIDERS_URL ||
     process.env.REACT_APP_PROVIDER_URL ||
-    "https://providers-08ug.onrender.com"
+    "https://providers-k8w7.onrender.com"
   ).replace(/\/$/, ""),
   utils: (
     process.env.INTEGRATION_UTILS_URL ||
@@ -26,7 +26,27 @@ export const serviceUrls = {
   reviews: (
     process.env.INTEGRATION_REVIEWS_URL ||
     process.env.REACT_APP_REVIEWS_URL ||
-    "https://reviews-19oo.onrender.com"
+    "https://reviews-7aal.onrender.com"
+  ).replace(/\/$/, ""),
+  tickets: (
+    process.env.INTEGRATION_TICKETS_URL ||
+    process.env.REACT_APP_TICKETS_URL ||
+    "https://tickets-3gc8.onrender.com"
+  ).replace(/\/$/, ""),
+  preferences: (
+    process.env.INTEGRATION_PREFERENCES_URL ||
+    process.env.REACT_APP_PREFERENCES_URL ||
+    "https://preferences.onrender.com"
+  ).replace(/\/$/, ""),
+  chat: (
+    process.env.INTEGRATION_CHAT_URL ||
+    process.env.REACT_APP_CHAT_URL ||
+    "https://chat-b3wl.onrender.com"
+  ).replace(/\/$/, ""),
+  imageUploader: (
+    process.env.INTEGRATION_IMAGE_UPLOADER_URL ||
+    process.env.REACT_APP_IMAGE_UPLOADER_URL ||
+    "https://imageuploader-5njj.onrender.com"
   ).replace(/\/$/, ""),
 };
 

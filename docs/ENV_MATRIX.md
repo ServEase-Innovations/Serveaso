@@ -34,17 +34,18 @@ Generate: `openssl rand -hex 32`
 | Variable | DEV (Render backends) | PROD (EC2) |
 |----------|----------------------|------------|
 | `REACT_APP_ENV` | `qa` or `local` | `prod` |
-| `REACT_APP_PAYMENTS_URL` | `https://payments-j5id.onrender.com` | `https://<prod-payments-host>` |
+| `REACT_APP_PAYMENTS_URL` | `https://payments-vyqp.onrender.com` | `https://<prod-payments-host>` |
 | `REACT_APP_SOCKET_URL` | same as payments | same as payments |
-| `REACT_APP_PROVIDER_URL` | `https://providers-08ug.onrender.com` | prod providers URL |
+| `REACT_APP_PROVIDER_URL` | `https://providers-k8w7.onrender.com` | prod providers URL |
 | `REACT_APP_URL` | same as providers (legacy alias) | same |
 | `REACT_APP_UTILS_URL` | `https://utils-jo6c.onrender.com` | prod utils URL |
 | `REACT_APP_UTLIS_URL` | optional typo alias → same as utils | optional |
 | `REACT_APP_PREFERENCES_URL` | `https://preferences.onrender.com` | prod preferences |
 | `REACT_APP_COUPONS_URL` | `https://coupons-o26r.onrender.com` | prod coupons |
-| `REACT_APP_REVIEWS_URL` | `https://reviews-19oo.onrender.com` | prod reviews |
-| `REACT_APP_TICKETS_URL` | `https://<tickets>.onrender.com` | prod tickets |
+| `REACT_APP_REVIEWS_URL` | `https://reviews-7aal.onrender.com` | prod reviews |
+| `REACT_APP_TICKETS_URL` | `https://tickets-3gc8.onrender.com` | prod tickets |
 | `REACT_APP_CHAT_URL` | `https://chat-b3wl.onrender.com` | prod chat |
+| `REACT_APP_IMAGE_UPLOADER_URL` | `https://imageuploader-5njj.onrender.com` | prod image-uploader |
 | `REACT_APP_ADMIN_PUSH_SECRET` | = utils `ADMIN_PUSH_SECRET` | prod-only secret |
 | `REACT_APP_ADMIN_SESSION_MINUTES` | `480` (optional) | `480` |
 | Auth0 (`REACT_APP_AUTH0_*`) | Dev Auth0 application | Prod Auth0 application |
@@ -89,11 +90,11 @@ Default prod behavior is **encrypt-only** unless `POSTGRES_SSL_REJECT_UNAUTHORIZ
 | `AUTH0_AUDIENCE` | API identifier | same |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | test keys | **live** keys |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | dev Firebase | prod Firebase |
-| `PAYMENTS_SERVICE_URL` | `https://payments-j5id.onrender.com` | prod |
-| `PROVIDERS_SERVICE_URL` | `https://providers-08ug.onrender.com` | prod |
+| `PAYMENTS_SERVICE_URL` | `https://payments-vyqp.onrender.com` | prod |
+| `PROVIDERS_SERVICE_URL` | `https://providers-k8w7.onrender.com` | prod |
 | `COUPONS_SERVICE_URL` | `https://coupons-o26r.onrender.com` | prod |
 | `PREFERENCES_SERVICE_URL` | `https://preferences.onrender.com` | prod |
-| `REVIEWS_SERVICE_URL` | `https://reviews-19oo.onrender.com` | prod |
+| `REVIEWS_SERVICE_URL` | `https://reviews-7aal.onrender.com` | prod |
 
 **Admin-only routes** (`/api/platform-status`, PUT platform-settings): header `X-Admin-Push-Secret` = `ADMIN_PUSH_SECRET`.
 
@@ -167,7 +168,7 @@ Default prod behavior is **encrypt-only** unless `POSTGRES_SSL_REJECT_UNAUTHORIZ
 | Variable | DEV | PROD |
 |----------|-----|------|
 | `DATABASE_URL` / `POSTGRES_*` | dev `serveaso1` | prod |
-| `PAYMENTS_SERVICE_URL` | `https://payments-j5id.onrender.com` | prod payments |
+| `PAYMENTS_SERVICE_URL` | `https://payments-vyqp.onrender.com` | prod payments |
 | `ADMIN_TICKET_SECRET` | = utils `ADMIN_PUSH_SECRET` | prod secret |
 | `INTERNAL_NOTIFY_SECRET` | same as admin secret | same |
 | `TICKET_DEFAULT_SLA_HOURS` | `48` | `48` |
