@@ -11,7 +11,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | Area | Status |
 |------|--------|
 | Phase 0 — Blockers | 5 / 6 |
-| Phase 1 — Secure & stable | 5 / 6 |
+| Phase 1 — Secure & stable | 6 / 6 |
 | Phase 2 — Quality & observability | 0 / 5 |
 | Phase 3 — Polish | 0 / 4 |
 | Go / no-go gate | 0 / 6 |
@@ -33,7 +33,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | 2026-06-07 | **S9** Hide debugMessage | providers + coupons omit `debugMessage` / `prismaMeta` when `NODE_ENV=production` |
 | 2026-06-07 | **ENV-1** Env matrix | [ENV_MATRIX.md](./ENV_MATRIX.md) — DEV Render vs PROD EC2 URLs and secrets |
 
-**Next:** Work [DEV_PROD_WEEK_CHECKLIST](./DEV_PROD_WEEK_CHECKLIST.md) — finish DEV smoke test + migrations, then PROD EC2 next week.
+**Next:** Work [DEV_PROD_WEEK_CHECKLIST](./DEV_PROD_WEEK_CHECKLIST.md) — redeploy coupons + providers (S10), DEV smoke test + migrations, then PROD EC2 next week.
 
 ---
 
@@ -159,7 +159,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 
 - [x] **S8** — JWT on mutating APIs: Auth0 `express-jwt` on payments + providers (registration, pricing quote, webhooks exempt); set `AUTH0_DOMAIN` + `AUTH0_AUDIENCE`
 - [x] **S9** — `debugMessage` in API errors: stripped in production (providers, coupons)
-- [ ] **S10** — Postgres `rejectUnauthorized: false` (coupons): use proper CA bundle
+- [x] **S10** — Postgres `rejectUnauthorized: false` (coupons + providers): AWS RDS CA bundle + strict TLS in prod (`postgresSsl.js`, `certs/rds-global-bundle.pem`)
 - [ ] **S11** — Customer payment data exposure: audit all roles (SP API already cleaned)
 
 ---

@@ -61,6 +61,18 @@ Generate: `openssl rand -hex 32`
 | `CORS_ORIGINS` | `http://localhost:3000,https://servease-innovation.netlify.app` | prod web domain only | payments, providers, utils, coupons, preferences, reviews, chat, imageUploader |
 | `SOCKET_IO_ORIGINS` | optional; defaults to `CORS_ORIGINS` | optional | payments, chat |
 
+### Postgres TLS (coupons + providers — Sequelize / Prisma)
+
+Bundled AWS RDS CA: `certs/rds-global-bundle.pem` in each service repo. **No new GitHub secret.**
+
+| Variable | DEV (Render) | PROD (EC2 / RDS) |
+|----------|--------------|------------------|
+| `POSTGRES_SSL_REJECT_UNAUTHORIZED` | omit (strict when bundle present) or `false` if DB host is non-RDS | `true` (default with bundle) |
+| `POSTGRES_SSL_CA_PATH` | optional override | optional override |
+| `POSTGRES_SSL_MODE` | `disable` only for local laptop dev | omit in prod |
+
+If coupons/providers fail to connect after deploy with certificate errors, set `POSTGRES_SSL_REJECT_UNAUTHORIZED=false` on that service (encrypt-only fallback).
+
 ---
 
 ## Utils
