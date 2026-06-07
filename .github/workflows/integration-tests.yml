@@ -1,0 +1,47 @@
+# TEST-1 — smoke integration tests against DEV Render URLs.
+# Manual trigger (not on every PR — hits live DB / Razorpay).
+
+name: Integration Tests (DEV)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_create_happy_path:
+        description: Run create-engagement 201 test (needs INTEGRATION_TEST_CUSTOMER_ID secret)
+        type: boolean
+        default: false
+
+concurrency:
+  group: integration-tests-dev
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run integration tests
+        env:
+          INTEGRATION_PAYMENTS_URL: ${{ secrets.DEV_PAYMENTS_URL }}
+          INTEGRATION_PROVIDERS_URL: ${{ secrets.DEV_PROVIDERS_URL }}
+          INTEGRATION_UTILS_URL: ${{ secrets.DEV_UTILS_URL }}
+          INTEGRATION_COUPONS_URL: ${{ secrets.DEV_COUPONS_URL }}
+          INTEGRATION_REVIEWS_URL: ${{ secrets.DEV_REVIEWS_URL }}
+          RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
+          INTEGRATION_INTERNAL_SECRET: ${{ secrets.INTEGRATION_INTERNAL_SECRET }}
+          INTEGRATION_TEST_CUSTOMER_ID: ${{ inputs.run_create_happy_path && secrets.INTEGRATION_TEST_CUSTOMER_ID || '' }}
+        run: |
+          npm run test:integration
+          npm run test --workspace=services/payments

@@ -38,6 +38,7 @@ See also **[DATABASE_MIGRATIONS.md](./DATABASE_MIGRATIONS.md)**.
 | Workflow | Purpose |
 |----------|---------|
 | [**PR Checks**](../.github/workflows/pr-checks.yml) | On pull requests to `main`: UI lint + build, reviews typecheck, secret scan |
+| [**Integration Tests (DEV)**](../.github/workflows/integration-tests.yml) | Manual: health, webhook HMAC, create engagement against DEV URLs |
 | [**Deploy Backend**](../.github/workflows/deploy-backend.yml) | Manual deploy to **dev** (Render) or **prod** (EC2); optional DB migrations first (`run_migrations`) |
 | [**Rollback Backend (EC2)**](../.github/workflows/rollback-backend.yml) | Roll back **prod** to a previous build version |
 

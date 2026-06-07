@@ -27,7 +27,8 @@
     "db:migrate": "npm run migrate --prefix database",
     "db:migrate:sql": "npm run migrate:sql --prefix database",
     "db:migrate:prisma": "npm run migrate:prisma --prefix database",
-    "db:install": "npm install --prefix database"
+    "db:install": "npm install --prefix database",
+    "test:integration": "node --test tests/integration/"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

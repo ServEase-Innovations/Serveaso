@@ -223,7 +223,7 @@ Mark `[x]` when done. Work in order within each phase.
 ### Phase 2 — Quality & observability (week 3–4)
 
 - [x] **Step 13 · CI-1** — GitHub Action on PR: lint + typecheck (reviews) + secret scan *(`.github/workflows/pr-checks.yml`)*
-- [ ] **Step 14 · TEST-1** — Integration tests: payment verify, webhook, engagement create/cancel *(payments, ~2d)*
+- [x] **Step 14 · TEST-1** — Integration tests: health, webhook HMAC, create engagement (`tests/integration/`, `npm run test:integration`)
 - [ ] **Step 15 · OPS-2** — Prod metrics scrape + alert rules (5xx, webhook failures, DB down) *(DevOps, ~2d)*
 - [ ] **Step 16 · DB-3** — Trim coupons Prisma schema to coupon tables only *(coupons, ~1d)*
 - [ ] **Step 17 · SEC-1** — Rate limiting + `helmet` on public Express apps *(backend, ~1d)*

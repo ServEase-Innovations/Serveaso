@@ -69,7 +69,7 @@ Run on Netlify DEV + Render DEV:
 - [x] **S11** — Quick audit: no payment/PII leakage in provider/customer API responses (`responseRedaction.js` on payments + providers)
 - [x] **S11b** — GET ownership: `resourceAccess.js` + signed OTP session JWT; set `JWT_PROTECT_READS` + `SESSION_JWT_SECRET` on Render
 - [x] **CI-1** — PR workflow: lint + reviews typecheck + secret scan (`.github/workflows/pr-checks.yml`)
-- [ ] **TEST-1** — 3–5 integration tests (health, webhook HMAC, create engagement) against dev URLs
+- [x] **TEST-1** — Integration tests: `npm run test:integration` + Actions **Integration Tests (DEV)**
 - [ ] Deploy notification email (optional): `DEPLOY_NOTIFY_FROM=info@serveaso.com` (domain must match SendGrid auth)
 
 **DEV is done when:** A + B + C + D + E are checked.
