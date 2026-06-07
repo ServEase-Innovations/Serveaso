@@ -17,7 +17,7 @@ This **parent** repository uses **Git submodules** to pin the backend services a
 | `services/tickets` | Support tickets / complaints (PostgreSQL / Prisma) | [ServEase-Innovations/tickets](https://github.com/ServEase-Innovations/tickets) |
 | `apps/servase-ui` | **React (CRA) + TypeScript** customer UI for Servease | [ServEase-Innovations/ServEase_UI](https://github.com/ServEase-Innovations/ServEase_UI) |
 
-**Production checklist:** [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) — security, migrations, ops, and phased go-live steps (mark items `[x]` when done).
+**Production checklist:** [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) — security, migrations, ops, and phased go-live steps (mark items `[x]` when done). **Env vars (DEV/PROD):** [docs/ENV_MATRIX.md](docs/ENV_MATRIX.md).
 
 ## System architecture
 

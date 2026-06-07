@@ -11,7 +11,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | Area | Status |
 |------|--------|
 | Phase 0 — Blockers | 5 / 6 |
-| Phase 1 — Secure & stable | 3 / 6 |
+| Phase 1 — Secure & stable | 5 / 6 |
 | Phase 2 — Quality & observability | 0 / 5 |
 | Phase 3 — Polish | 0 / 4 |
 | Go / no-go gate | 0 / 6 |
@@ -30,8 +30,10 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | 2026-06-02 | **S6–S7** CORS + Socket.IO | `CORS_ORIGINS` on payments, providers, utils, coupons; Socket.IO uses same list; prod startup fails if unset |
 | 2026-06-02 | **OPS-1** Health endpoints | `GET /health` + `GET /ready` on payments, providers, coupons, utils |
 | 2026-06-02 | **S8** JWT on mutations | Auth0 JWT on POST/PUT/PATCH/DELETE in payments + providers (public registration/pricing/webhook paths exempt) |
+| 2026-06-07 | **S9** Hide debugMessage | providers + coupons omit `debugMessage` / `prismaMeta` when `NODE_ENV=production` |
+| 2026-06-07 | **ENV-1** Env matrix | [ENV_MATRIX.md](./ENV_MATRIX.md) — DEV Render vs PROD EC2 URLs and secrets |
 
-**Next:** DB-1 (prod migrations on prod Postgres); set `CORS_ORIGINS` + `AUTH0_*` on Render/EC2 before prod deploy.
+**Next:** DB-1 (prod migrations); align payments `INTERNAL_NOTIFY_SECRET` with utils on Render DEV; prod go-live smoke test.
 
 ---
 
@@ -156,7 +158,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 ### P1 — high
 
 - [x] **S8** — JWT on mutating APIs: Auth0 `express-jwt` on payments + providers (registration, pricing quote, webhooks exempt); set `AUTH0_DOMAIN` + `AUTH0_AUDIENCE`
-- [ ] **S9** — `debugMessage` in API errors: strip in production responses
+- [x] **S9** — `debugMessage` in API errors: stripped in production (providers, coupons)
 - [ ] **S10** — Postgres `rejectUnauthorized: false` (coupons): use proper CA bundle
 - [ ] **S11** — Customer payment data exposure: audit all roles (SP API already cleaned)
 
@@ -214,8 +216,8 @@ Mark `[x]` when done. Work in order within each phase.
 - [x] **Step 7 · S6–S7** — Lock CORS + Socket.IO to prod domains via `CORS_ORIGINS` *(payments, providers, utils, coupons)*
 - [x] **Step 8 · S8** — JWT middleware on mutating APIs (payments + providers) *(set `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`)*
 - [x] **Step 9 · OPS-1** — `/health` + `/ready` on payments, providers, coupons, utils
-- [ ] **Step 10 · ENV-1** — Prod env matrix doc: every `REACT_APP_*` and service URL *(DevOps + UI, ~2h)*
-- [ ] **Step 11 · S9** — Gate `debugMessage` behind non-production *(providers, coupons, ~2h)*
+- [x] **Step 10 · ENV-1** — [ENV_MATRIX.md](./ENV_MATRIX.md): every `REACT_APP_*` and service URL (DEV vs PROD)
+- [x] **Step 11 · S9** — Gate `debugMessage` behind non-production *(providers, coupons)*
 - [ ] **Step 12 · DB-2** — Remove coupons `patchCouponSchema` boot DDL after 096 verified *(coupons, ~2h)*
 
 ### Phase 2 — Quality & observability (week 3–4)
@@ -265,4 +267,4 @@ Deploy & migrate                           → .github/workflows/, docs/DEPLOYME
 
 ---
 
-*Last updated: 2026-06-02 — S6–S7, OPS-1, S8 done. Phase 0 still needs DB-1. Before prod: set `CORS_ORIGINS`, `AUTH0_*`, redeploy all services.*
+*Last updated: 2026-06-07 — S9 + ENV-1 done. Phase 0 still needs DB-1. See [ENV_MATRIX.md](./ENV_MATRIX.md) for Render/EC2 configuration.*
