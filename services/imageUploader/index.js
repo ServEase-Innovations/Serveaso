@@ -1,10 +1,12 @@
 import express from "express";
 import dotenv from "dotenv";
-import cors from "cors";
 import swaggerUi from "swagger-ui-express";
+import mongoose from "mongoose";
 
 dotenv.config({ path: "./.env" });
 import connectDB from "./src/config/db.js";
+import { corsMiddleware } from "./src/middleware/corsMiddleware.js";
+import { assertCorsOriginsProduction } from "./src/lib/corsOrigins.js";
 import imageRoutes from "./src/routes/image.routes.js";
 import fileRoutes from "./src/routes/file.routes.js";
 import { swaggerSpec } from "./src/config/swaggerSpec.js";
@@ -16,9 +18,13 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+if (process.env.NODE_ENV === "production") {
+  assertCorsOriginsProduction();
+}
+
 const app = express();
 connectDB();
-app.use(cors());
+app.use(corsMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -30,6 +36,22 @@ app.get("/api-docs.json", (_req, res) => {
 
 app.use("/api/images", imageRoutes);
 app.use("/api/files", fileRoutes);
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "image-uploader",
+    uptime: process.uptime(),
+  });
+});
+
+app.get("/ready", (_req, res) => {
+  const ready = mongoose.connection.readyState === 1;
+  res.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "not_ready",
+    service: "image-uploader",
+  });
+});
 
 app.get("/", (req, res) => {
   res.send(
