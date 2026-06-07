@@ -72,9 +72,8 @@ function buildPostgresSsl(env = process.env) {
   const rejectFlag = (env.POSTGRES_SSL_REJECT_UNAUTHORIZED || "").trim().toLowerCase();
   const { pem: caPem, source: caSource } = readCaPem(env);
 
-  const sslMode = (env.POSTGRES_SSL_MODE || "").trim().toLowerCase();
   let rejectUnauthorized = false;
-  if (rejectFlag === "true" || sslMode === "verify") {
+  if (rejectFlag === "true") {
     if (!caPem) {
       throw new Error(
         "Strict Postgres TLS requires a CA bundle. " +

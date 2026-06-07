@@ -69,7 +69,7 @@ Bundled AWS RDS CA: `certs/rds-global-bundle.pem` in each service repo. **No new
 |----------|--------------|------------------|
 | `POSTGRES_SSL_REJECT_UNAUTHORIZED` | omit or `false` (encrypt-only; self-signed / non-RDS hosts) | `true` when Postgres is **AWS RDS/Aurora** |
 | `POSTGRES_SSL_CA_PATH` | optional override | `certs/rds-global-bundle.pem` on RDS |
-| `POSTGRES_SSL_MODE` | `disable` only for local laptop dev | `verify` optional alias for strict mode |
+| `POSTGRES_SSL_MODE` | `disable` for local laptop dev; `require` forces TLS | `require` on prod TLS hosts |
 
 Default prod behavior is **encrypt-only** unless `POSTGRES_SSL_REJECT_UNAUTHORIZED=true`. DEV Render DB at a raw IP with a self-signed cert should **not** enable strict mode.
 
