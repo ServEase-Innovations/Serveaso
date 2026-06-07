@@ -45,9 +45,22 @@ resolve_owner_id() {
   if [[ -n "${OWNER_ID}" ]]; then
     return
   fi
+  if [[ ! "${SERVICE_ID}" =~ ^srv- ]]; then
+    echo "::error::Invalid Render service id '${SERVICE_ID}'. Use srv-… from the deploy hook URL (https://api.render.com/deploy/srv-XXX?key=…) or dashboard — not dep-… deploy id."
+    exit 1
+  fi
   echo "Resolving Render workspace (ownerId) from service ${SERVICE_ID}..."
-  local body
-  body="$(curl_api "${API}/services/${SERVICE_ID}")"
+  local body http_code
+  http_code="$(curl_api_body /tmp/render-service.json "${API}/services/${SERVICE_ID}")"
+  body="$(cat /tmp/render-service.json 2>/dev/null || echo "{}")"
+  if [[ "${http_code}" == "404" ]]; then
+    echo "::error::Render service ${SERVICE_ID} not found (HTTP 404). Fix RENDER_SERVICE_ID_* or RENDER_DEPLOY_HOOK_* — API key must be from the same Render workspace as the service."
+    exit 1
+  fi
+  if [[ "${http_code}" != "200" ]]; then
+    echo "::error::Render API GET /services/${SERVICE_ID} returned HTTP ${http_code}. Check RENDER_API_KEY and service id."
+    exit 1
+  fi
   OWNER_ID="$(echo "${body}" | jq -r '
     .ownerId
     // .service.ownerId

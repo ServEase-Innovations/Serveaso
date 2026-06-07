@@ -208,7 +208,7 @@ Disable **wait_for_render** only if you want to fire the hook and not verify the
 | Symptom | Likely cause |
 |---------|----------------|
 | GitHub green but Render failed | Old workflow run, or `wait_for_render` off / missing API secrets — upgrade to latest `main` |
-| `404` on “Resolving Render workspace” | Wrong `RENDER_SERVICE_ID_*` (must be `srv-…` from hook URL or dashboard, not `dep-…`) |
+| `404` on “Resolving Render workspace” | Wrong `RENDER_SERVICE_ID_*` (must be `srv-…` from hook URL or dashboard, not `dep-…`), or `RENDER_API_KEY` from a different Render workspace. Latest workflow derives `srv-…` from the deploy hook URL automatically — ensure `RENDER_DEPLOY_HOOK_CHAT` is the chat service’s hook. |
 | Hook returns `dep-…` but watch shows a different `dep-…` | Watch uses deploy id from hook response when present |
 | `400` fetching logs | Bad `startTime` or workspace; script retries without time filter |
 | `update_failed` / `build_failed` | Real Render deploy failure — job should fail; open service → **Deploys** in Render dashboard |

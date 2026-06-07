@@ -180,6 +180,20 @@ jobs:
             echo "::error::Missing Render deploy hook secret for ${{ matrix.service }}. See docs/DEPLOYMENT.md"
             exit 1
           fi
+          # Deploy hook URL embeds the service id: https://api.render.com/deploy/srv-XXXX?key=…
+          HOOK_SVC_ID="$(printf '%s' "${HOOK}" | sed -E 's|.*/(srv-[^/?]+).*|\1|')"
+          if [[ "${HOOK_SVC_ID}" == "${HOOK}" ]]; then
+            HOOK_SVC_ID=""
+          fi
+          if [[ -n "${HOOK_SVC_ID}" ]]; then
+            if [[ -n "${SVC_ID}" && "${SVC_ID}" != "${HOOK_SVC_ID}" ]]; then
+              echo "::warning::RENDER_SERVICE_ID_${{ matrix.service }} (${SVC_ID}) does not match deploy hook (${HOOK_SVC_ID}) — using hook value."
+            fi
+            SVC_ID="${HOOK_SVC_ID}"
+          elif [[ -z "${SVC_ID}" ]]; then
+            echo "::error::Set RENDER_SERVICE_ID_${{ matrix.service }} to srv-… from Render dashboard, or fix deploy hook URL."
+            exit 1
+          fi
           SERVICE_PATH="$(jq -r '.path' service.json)"
           {
             echo "RENDER_HOOK<<EOF"
