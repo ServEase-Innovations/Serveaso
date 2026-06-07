@@ -9,7 +9,7 @@ One-page runbook. Tick boxes as you go.
 
 ### A. Database
 
-- [ ] **Migrate dev DB** — Actions → **Migrate Database** → `environment: dev` (or `npm run db:migrate` with `DEV_DATABASE_URL`)
+- [ ] **Migrate dev DB** — Actions → **Deploy Backend** → `environment: dev`, `run_migrations: true` (or `npm run db:migrate` with `DEV_DATABASE_URL`)
 - [ ] Confirm `_serveaso_schema_migrations` includes through **`097_maid_cook_promo99_coupons.sql`**
 - [ ] Confirm coupon columns from **`096`** exist (`booking_condition`, `nth_booking`)
 - [ ] **DB-2** — Remove coupons `patchCouponSchema` boot DDL after 096 verified on dev
@@ -68,7 +68,7 @@ Run on Netlify DEV + Render DEV:
 - [x] **S10** — coupons + providers Postgres SSL: RDS CA bundle (`certs/rds-global-bundle.pem`); redeploy and verify `/health` + `/ready`
 - [x] **S11** — Quick audit: no payment/PII leakage in provider/customer API responses (`responseRedaction.js` on payments + providers)
 - [x] **S11b** — GET ownership: `resourceAccess.js` + signed OTP session JWT; set `JWT_PROTECT_READS` + `SESSION_JWT_SECRET` on Render
-- [ ] **CI-1** — PR workflow: lint + reviews typecheck (even minimal)
+- [x] **CI-1** — PR workflow: lint + reviews typecheck + secret scan (`.github/workflows/pr-checks.yml`)
 - [ ] **TEST-1** — 3–5 integration tests (health, webhook HMAC, create engagement) against dev URLs
 - [ ] Deploy notification email (optional): `DEPLOY_NOTIFY_FROM=info@serveaso.com` (domain must match SendGrid auth)
 
@@ -90,7 +90,7 @@ Run on Netlify DEV + Render DEV:
 
 ### Day 2 — Database
 
-- [ ] **DB-1** — Actions → **Migrate Database** → `environment: prod` (through **097**)
+- [ ] **DB-1** — Actions → **Deploy Backend** → `environment: prod`, `run_migrations: true` (through **097**)
 - [ ] Verify tables: `engagements`, `service_days`, `in_app_notifications`, `support_tickets`, coupon `096` columns
 - [ ] Backup taken before migrate; restore drill noted
 

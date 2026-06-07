@@ -37,8 +37,8 @@ See also **[DATABASE_MIGRATIONS.md](./DATABASE_MIGRATIONS.md)**.
 
 | Workflow | Purpose |
 |----------|---------|
-| [**Migrate Database**](../.github/workflows/migrate-database.yml) | Manual: SQL + Prisma (tickets) on dev or prod |
-| [**Deploy Backend**](../.github/workflows/deploy-backend.yml) | Manual deploy to **dev** (Render) or **prod** (EC2); migrations first if enabled |
+| [**PR Checks**](../.github/workflows/pr-checks.yml) | On pull requests to `main`: UI lint + build, reviews typecheck, secret scan |
+| [**Deploy Backend**](../.github/workflows/deploy-backend.yml) | Manual deploy to **dev** (Render) or **prod** (EC2); optional DB migrations first (`run_migrations`) |
 | [**Rollback Backend (EC2)**](../.github/workflows/rollback-backend.yml) | Roll back **prod** to a previous build version |
 
 ### Deploy Backend

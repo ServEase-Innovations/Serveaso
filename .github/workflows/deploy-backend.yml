@@ -96,7 +96,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
         run: |
           if [[ -z "${DATABASE_URL}" ]]; then
-            echo "::error::Missing DEV_DATABASE_URL — run Migrate Database workflow or set secret. See docs/DEPLOYMENT.md"
+            echo "::error::Missing DEV_DATABASE_URL — set secret or run Deploy Backend with run_migrations. See docs/DEPLOYMENT.md"
             exit 1
           fi
           npm run db:migrate

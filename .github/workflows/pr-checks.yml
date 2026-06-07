@@ -1,0 +1,80 @@
+# Minimal PR gate: UI lint + build (typecheck), reviews compile, secret scan.
+
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-checks-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ui:
+    name: UI lint & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/servase-ui/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: apps/servase-ui
+        run: npm ci
+
+      - name: Lint (src only)
+        working-directory: apps/servase-ui
+        run: npm run lint:ci
+
+      - name: Build (typecheck gate)
+        working-directory: apps/servase-ui
+        env:
+          CI: true
+        run: npm run build
+
+  reviews:
+    name: Reviews typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: services/reviews/package-lock.json
+
+      - name: Install reviews dependencies
+        working-directory: services/reviews
+        run: npm ci
+
+      - name: Compile TypeScript
+        working-directory: services/reviews
+        run: npm run build
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
