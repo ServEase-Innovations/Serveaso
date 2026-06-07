@@ -24,13 +24,22 @@ npm run test:integration
 | `webhook-hmac.test.mjs` | Unit HMAC verify + live webhook probes |
 | `create-engagement.test.mjs` | Validation 400, unknown customer 404, optional create 201 |
 
-## CI
+## CI/CD (GitHub Actions)
 
-GitHub Actions → **Integration Tests (DEV)** → Run workflow (manual).  
-Requires repo secrets: `DEV_PAYMENTS_URL`, etc. (optional overrides) and `RAZORPAY_WEBHOOK_SECRET` / `INTEGRATION_TEST_CUSTOMER_ID` for optional tests.
+Workflow: **Integration Tests (DEV)** (`.github/workflows/integration-tests.yml`)
+
+| Trigger | When |
+|---------|------|
+| **Push to `main`** | Changes under `tests/integration/`, payments webhook tests, or workflow file |
+| **Daily schedule** | 06:00 UTC — continuous DEV smoke |
+| **Deploy Backend → dev** | After successful dev deploy (`run_smoke_tests: true`, default) |
+| **Manual** | Actions → Run workflow; optional happy-path create via input |
+
+URL overrides (optional repo secrets): `DEV_PAYMENTS_URL`, `DEV_PROVIDERS_URL`, `DEV_UTILS_URL`, etc.  
+Unset secrets fall back to defaults in `lib/config.mjs`.
 
 ## Notes
 
-- **payments/providers `/health`**: requires OPS-1 deploy on Render; tests fail with a redeploy hint if still 404.
-- **Webhook verify on DEV**: if `SKIP_RAZORPAY_WEBHOOK_VERIFY` is set, live HMAC enforcement is skipped; unit tests still validate the algorithm.
+- **payments/providers `/health`**: requires OPS-1 deploy on Render; liveness probes used as fallback.
+- **Webhook verify on DEV**: `payments-vyqp` enforces HMAC; unit tests always validate the algorithm.
 - **Happy-path create** inserts a real `PAYMENT_PENDING` engagement — use a dedicated test customer id.

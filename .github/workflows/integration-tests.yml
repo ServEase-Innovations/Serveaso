@@ -1,5 +1,5 @@
 # TEST-1 — smoke integration tests against DEV Render URLs.
-# Manual trigger (not on every PR — hits live DB / Razorpay).
+# Triggers: manual, push to main, nightly schedule, post-deploy (dev) via workflow_call.
 
 name: Integration Tests (DEV)
 
@@ -11,9 +11,29 @@ on:
         type: boolean
         default: false
 
+  push:
+    branches: [main]
+    paths:
+      - "tests/integration/**"
+      - "services/payments/src/utils/razorpayWebhookHmac.js"
+      - "services/payments/test/**"
+      - ".github/workflows/integration-tests.yml"
+      - "package.json"
+
+  schedule:
+    # Daily smoke against DEV (06:00 UTC)
+    - cron: "0 6 * * *"
+
+  workflow_call:
+    inputs:
+      run_create_happy_path:
+        description: Run create-engagement 201 test
+        type: boolean
+        default: false
+
 concurrency:
-  group: integration-tests-dev
-  cancel-in-progress: false
+  group: integration-tests-dev-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -32,16 +52,28 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Run integration tests
+      - name: Run integration tests (DEV)
         env:
           INTEGRATION_PAYMENTS_URL: ${{ secrets.DEV_PAYMENTS_URL }}
           INTEGRATION_PROVIDERS_URL: ${{ secrets.DEV_PROVIDERS_URL }}
           INTEGRATION_UTILS_URL: ${{ secrets.DEV_UTILS_URL }}
           INTEGRATION_COUPONS_URL: ${{ secrets.DEV_COUPONS_URL }}
           INTEGRATION_REVIEWS_URL: ${{ secrets.DEV_REVIEWS_URL }}
+          INTEGRATION_TICKETS_URL: ${{ secrets.DEV_TICKETS_URL }}
+          INTEGRATION_PREFERENCES_URL: ${{ secrets.DEV_PREFERENCES_URL }}
+          INTEGRATION_CHAT_URL: ${{ secrets.DEV_CHAT_URL }}
+          INTEGRATION_IMAGE_UPLOADER_URL: ${{ secrets.DEV_IMAGE_UPLOADER_URL }}
           RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
           INTEGRATION_INTERNAL_SECRET: ${{ secrets.INTEGRATION_INTERNAL_SECRET }}
-          INTEGRATION_TEST_CUSTOMER_ID: ${{ inputs.run_create_happy_path && secrets.INTEGRATION_TEST_CUSTOMER_ID || '' }}
+          INTEGRATION_TEST_CUSTOMER_ID: ${{ (inputs.run_create_happy_path == true) && secrets.INTEGRATION_TEST_CUSTOMER_ID || '' }}
         run: |
+          echo "### Integration tests (DEV)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Trigger: **${{ github.event_name }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Ref: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           npm run test:integration
           npm run test --workspace=services/payments
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Integration smoke finished with exit code $?" >> "$GITHUB_STEP_SUMMARY"

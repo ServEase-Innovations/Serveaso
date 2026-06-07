@@ -46,6 +46,11 @@ on:
         required: false
         type: boolean
         default: true
+      run_smoke_tests:
+        description: Dev only — run integration smoke tests after deploy succeeds
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: deploy-backend-${{ inputs.environment }}-${{ inputs.service }}
@@ -435,3 +440,15 @@ jobs:
         run: |
           chmod +x .github/scripts/send-deploy-notification-email.sh
           .github/scripts/send-deploy-notification-email.sh deploy-reports
+
+  smoke-integration:
+    name: DEV smoke tests
+    needs: [deploy]
+    if: |
+      inputs.run_smoke_tests == true &&
+      inputs.environment == 'dev' &&
+      needs.deploy.result == 'success'
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      run_create_happy_path: false
+    secrets: inherit

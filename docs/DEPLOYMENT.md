@@ -38,7 +38,7 @@ See also **[DATABASE_MIGRATIONS.md](./DATABASE_MIGRATIONS.md)**.
 | Workflow | Purpose |
 |----------|---------|
 | [**PR Checks**](../.github/workflows/pr-checks.yml) | On pull requests to `main`: UI lint + build, reviews typecheck, secret scan |
-| [**Integration Tests (DEV)**](../.github/workflows/integration-tests.yml) | Manual: health, webhook HMAC, create engagement against DEV URLs |
+| [**Integration Tests (DEV)**](../.github/workflows/integration-tests.yml) | Smoke tests vs DEV: **push to main** (test paths), **daily 06:00 UTC**, **after dev deploy**, or manual |
 | [**Deploy Backend**](../.github/workflows/deploy-backend.yml) | Manual deploy to **dev** (Render) or **prod** (EC2); optional DB migrations first (`run_migrations`) |
 | [**Rollback Backend (EC2)**](../.github/workflows/rollback-backend.yml) | Roll back **prod** to a previous build version |
 
@@ -199,6 +199,10 @@ After **Deploy Backend** finishes, a summary email is sent when **notify on depl
 | `DEPLOY_NOTIFY_EMAILS` | Comma-separated recipients (e.g. `ops@serveaso.com,ronit@serveaso.com`) |
 | `SENDGRID_API_KEY` | [SendGrid](https://sendgrid.com) API key with **Mail Send** permission |
 | `DEPLOY_NOTIFY_FROM` | *(optional)* From address verified in SendGrid (default `deploy@serveaso.com`) |
+| `DEV_*_URL` | *(optional)* `DEV_PAYMENTS_URL`, `DEV_PROVIDERS_URL`, … — override integration-test targets |
+| `RAZORPAY_WEBHOOK_SECRET` | *(optional)* Live signed webhook smoke test |
+| `INTEGRATION_TEST_CUSTOMER_ID` | *(optional)* Happy-path create test (manual workflow input) |
+| `INTEGRATION_INTERNAL_SECRET` | *(optional)* JWT bypass for create-engagement smoke |
 
 Email includes: environment, build version (`<sha>-<run>`), per-service CI status, Render deploy id/status (dev), commit SHA, link to the GitHub Actions run.
 
