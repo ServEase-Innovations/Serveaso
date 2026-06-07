@@ -20,6 +20,19 @@ on:
     - cron: "0 6 * * *"
 
   workflow_call:
+    outputs:
+      integration_status:
+        description: success or failure
+        value: ${{ jobs.integration.outputs.integration_status }}
+      integration_pass:
+        description: Total passed tests
+        value: ${{ jobs.integration.outputs.integration_pass }}
+      integration_fail:
+        description: Total failed tests
+        value: ${{ jobs.integration.outputs.integration_fail }}
+      integration_skip:
+        description: Total skipped tests
+        value: ${{ jobs.integration.outputs.integration_skip }}
 
 concurrency:
   group: integration-tests-dev-${{ github.event_name }}-${{ github.ref }}
@@ -32,6 +45,11 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      integration_status: ${{ steps.parse.outputs.status }}
+      integration_pass: ${{ steps.parse.outputs.pass }}
+      integration_fail: ${{ steps.parse.outputs.fail }}
+      integration_skip: ${{ steps.parse.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -61,10 +79,32 @@ jobs:
           echo "### Integration tests (DEV)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Trigger: **${{ github.event_name }}**" >> "$GITHUB_STEP_SUMMARY"
           echo "- Ref: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          npm run test:integration
-          npm run test --workspace=services/payments
+          set -o pipefail
+          npm run test:integration 2>&1 | tee /tmp/all-tests.log
+          rc1=${PIPESTATUS[0]}
+          npm run test --workspace=services/payments 2>&1 | tee -a /tmp/all-tests.log
+          rc2=${PIPESTATUS[0]}
+          if [[ "${rc1}" -ne 0 || "${rc2}" -ne 0 ]]; then
+            exit 1
+          fi
 
-      - name: Summary
+      - name: Parse test summary
+        id: parse
         if: always()
         run: |
-          echo "Integration smoke finished with exit code $?" >> "$GITHUB_STEP_SUMMARY"
+          pass="$(grep -E '^# pass ' /tmp/all-tests.log 2>/dev/null | awk '{s+=$3} END {print s+0}')"
+          fail="$(grep -E '^# fail ' /tmp/all-tests.log 2>/dev/null | awk '{s+=$3} END {print s+0}')"
+          skip="$(grep -E '^# skipped ' /tmp/all-tests.log 2>/dev/null | awk '{s+=$3} END {print s+0}')"
+          echo "pass=${pass}" >> "$GITHUB_OUTPUT"
+          echo "fail=${fail}" >> "$GITHUB_OUTPUT"
+          echo "skip=${skip}" >> "$GITHUB_OUTPUT"
+          if [[ "${fail}" -gt 0 ]]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          fi
+          echo "| Metric | Count |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Pass | ${pass} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Fail | ${fail} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Skip | ${skip} |" >> "$GITHUB_STEP_SUMMARY"

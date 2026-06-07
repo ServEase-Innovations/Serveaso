@@ -12,6 +12,12 @@ ENVIRONMENT="${ENVIRONMENT:-unknown}"
 BUILD_VERSION="${BUILD_VERSION:-unknown}"
 WORKFLOW_URL="${WORKFLOW_URL:-}"
 MIGRATE_STATUS="${MIGRATE_STATUS:-skipped}"
+RUN_SMOKE_TESTS="${RUN_SMOKE_TESTS:-false}"
+INTEGRATION_JOB_RESULT="${INTEGRATION_JOB_RESULT:-skipped}"
+INTEGRATION_STATUS="${INTEGRATION_STATUS:-}"
+INTEGRATION_PASS="${INTEGRATION_PASS:-0}"
+INTEGRATION_FAIL="${INTEGRATION_FAIL:-0}"
+INTEGRATION_SKIP="${INTEGRATION_SKIP:-0}"
 
 if [[ -z "${EMAILS}" ]]; then
   echo "::notice::DEPLOY_NOTIFY_EMAILS not set — skipping deployment email."
@@ -65,6 +71,12 @@ PAYLOAD="$(jq -n \
   --arg migrateStatus "${MIGRATE_STATUS}" \
   --arg workflowUrl "${WORKFLOW_URL}" \
   --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --arg runSmokeTests "${RUN_SMOKE_TESTS}" \
+  --arg integrationJobResult "${INTEGRATION_JOB_RESULT}" \
+  --arg integrationStatus "${INTEGRATION_STATUS}" \
+  --arg integrationPass "${INTEGRATION_PASS}" \
+  --arg integrationFail "${INTEGRATION_FAIL}" \
+  --arg integrationSkip "${INTEGRATION_SKIP}" \
   --slurpfile reports "${MERGED}" \
   '
   def short_sha:
@@ -138,14 +150,35 @@ PAYLOAD="$(jq -n \
   ($rows | map(select(.jobStatus == "success")) | length) as $ok |
   ($total - $ok) as $failed |
   (if $total > 0 then (($ok / $total) * 100 | floor) else 0 end) as $pct |
-  (if $workflowStatus == "success" and $failed == 0 then
+  (if ($environment | ascii_downcase) == "dev" and $runSmokeTests == "true" and $integrationJobResult != "skipped" then true else false end) as $integrationRan |
+  (if $integrationRan then
+    if (($integrationFail | if . == "" then 0 else tonumber end) > 0) or $integrationStatus == "failure" or $integrationJobResult == "failure" then "failure"
+    elif $integrationJobResult == "success" or $integrationStatus == "success" then "success"
+    else $integrationJobResult end
+  else "skipped" end) as $integrationOutcome |
+  (if $integrationRan and $integrationOutcome == "success" then
+    "Integration: \($integrationPass) passed, \($integrationSkip) skipped"
+  elif $integrationRan and $integrationOutcome == "failure" then
+    "Integration: \($integrationFail) failed (\($integrationPass) passed)"
+  elif ($environment | ascii_downcase) != "dev" then "Integration: not run (prod deploy)"
+  elif $runSmokeTests != "true" then "Integration: disabled for this run"
+  else "Integration: skipped" end) as $integrationSummary |
+  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") then
     "[OK] Serveaso deploy \($environment) - \($buildVersion) (\($ok)/\($total) services)"
+  elif $integrationOutcome == "failure" then
+    "[!] Serveaso deploy \($environment) - \($buildVersion) — integration tests failed"
   else
     "[!] Serveaso deploy \($environment) - \($buildVersion) (\($ok) ok, \($failed) failed)"
   end) as $subject |
-  (if $workflowStatus == "success" and $failed == 0 then "All systems deployed" else "Review required" end) as $headline |
-  (if $workflowStatus == "success" and $failed == 0 then "#10b981" else "#f59e0b" end) as $accent |
-  (if $workflowStatus == "success" and $failed == 0 then "#ecfdf5" else "#fffbeb" end) as $accentBg |
+  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") then "All systems deployed"
+   elif $integrationOutcome == "failure" then "Deploy OK — integration smoke failed"
+   else "Review required" end) as $headline |
+  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") then "#10b981"
+   elif $integrationOutcome == "failure" then "#ef4444"
+   else "#f59e0b" end) as $accent |
+  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") then "#ecfdf5"
+   elif $integrationOutcome == "failure" then "#fef2f2"
+   else "#fffbeb" end) as $accentBg |
   ($rows | map(service_bar) | join("")) as $barRows |
   ($rows | map(
     "<tr>"
@@ -201,9 +234,27 @@ PAYLOAD="$(jq -n \
         + "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:14px;font-size:13px;\"><tr>"
         + "<td style=\"padding-right:16px;\"><strong>Build</strong><br><code style=\"font-size:11px;\">\($buildVersion)</code></td>"
         + "<td style=\"padding-right:16px;\"><strong>Workflow</strong><br>" + meta_badge($workflowStatus) + "</td>"
-        + "<td><strong>Migrations</strong><br>" + meta_badge($migrateStatus) + "</td>"
+        + "<td style=\"padding-right:16px;\"><strong>Migrations</strong><br>" + meta_badge($migrateStatus) + "</td>"
+        + "<td><strong>Integration</strong><br>" + meta_badge($integrationOutcome) + "</td>"
         + "</tr></table>"
         + "</td></tr></table></td></tr>"
+
+        + (if $integrationRan then
+          "<tr><td style=\"padding:0 32px 24px;\">"
+          + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;\"><tr><td style=\"padding:18px 20px;\">"
+          + "<div style=\"font-size:15px;font-weight:700;color:#1e293b;margin-bottom:8px;\">Integration tests (DEV smoke)</div>"
+          + "<div style=\"font-size:13px;color:#475569;margin-bottom:12px;\">\($integrationSummary)</div>"
+          + "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:13px;\"><tr>"
+          + "<td style=\"padding-right:20px;\"><strong>Passed</strong><br><span style=\"font-size:20px;font-weight:700;color:#059669;\">\($integrationPass)</span></td>"
+          + "<td style=\"padding-right:20px;\"><strong>Failed</strong><br><span style=\"font-size:20px;font-weight:700;color:#dc2626;\">\($integrationFail)</span></td>"
+          + "<td><strong>Skipped</strong><br><span style=\"font-size:20px;font-weight:700;color:#6b7280;\">\($integrationSkip)</span></td>"
+          + "</tr></table></td></tr></table></td></tr>"
+        else
+          "<tr><td style=\"padding:0 32px 24px;\">"
+          + "<div style=\"font-size:13px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;\">"
+          + "<strong>Integration tests:</strong> \($integrationSummary)"
+          + "</div></td></tr>"
+        end)
 
         + "<tr><td style=\"padding:0 32px 8px;\"><div style=\"font-size:16px;font-weight:700;color:#1e293b;\">Service status chart</div></td></tr>"
         + "<tr><td style=\"padding:0 32px 24px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">" + $barRows + "</table></td></tr>"

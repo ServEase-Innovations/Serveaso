@@ -412,8 +412,18 @@ jobs:
           path: deploy-report-${{ matrix.service }}.json
           if-no-files-found: ignore
 
+  smoke-integration:
+    name: DEV smoke tests
+    needs: [deploy]
+    if: |
+      inputs.run_smoke_tests == true &&
+      inputs.environment == 'dev' &&
+      needs.deploy.result == 'success'
+    uses: ./.github/workflows/integration-tests.yml
+    secrets: inherit
+
   notify-deployment:
-    needs: [resolve-matrix, migrate-database, deploy]
+    needs: [resolve-matrix, migrate-database, deploy, smoke-integration]
     if: always() && needs.resolve-matrix.result == 'success' && inputs.notify_on_deploy == true
     runs-on: ubuntu-latest
     steps:
@@ -437,16 +447,12 @@ jobs:
           BUILD_VERSION: ${{ env.BUILD_VERSION }}
           MIGRATE_STATUS: ${{ needs.migrate-database.result }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_SMOKE_TESTS: ${{ inputs.run_smoke_tests }}
+          INTEGRATION_JOB_RESULT: ${{ needs.smoke-integration.result }}
+          INTEGRATION_STATUS: ${{ needs.smoke-integration.outputs.integration_status }}
+          INTEGRATION_PASS: ${{ needs.smoke-integration.outputs.integration_pass }}
+          INTEGRATION_FAIL: ${{ needs.smoke-integration.outputs.integration_fail }}
+          INTEGRATION_SKIP: ${{ needs.smoke-integration.outputs.integration_skip }}
         run: |
           chmod +x .github/scripts/send-deploy-notification-email.sh
           .github/scripts/send-deploy-notification-email.sh deploy-reports
-
-  smoke-integration:
-    name: DEV smoke tests
-    needs: [deploy]
-    if: |
-      inputs.run_smoke_tests == true &&
-      inputs.environment == 'dev' &&
-      needs.deploy.result == 'success'
-    uses: ./.github/workflows/integration-tests.yml
-    secrets: inherit

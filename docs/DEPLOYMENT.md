@@ -39,7 +39,7 @@ See also **[DATABASE_MIGRATIONS.md](./DATABASE_MIGRATIONS.md)**.
 |----------|---------|
 | [**PR Checks**](../.github/workflows/pr-checks.yml) | On pull requests to `main`: UI lint + build, reviews typecheck, secret scan |
 | [**Integration Tests (DEV)**](../.github/workflows/integration-tests.yml) | Smoke tests vs DEV: **push to main** (test paths), **daily 06:00 UTC**, **after dev deploy**, or manual |
-| [**Deploy Backend**](../.github/workflows/deploy-backend.yml) | Manual deploy to **dev** (Render) or **prod** (EC2); optional DB migrations first (`run_migrations`) |
+| [**Deploy Backend**](../.github/workflows/deploy-backend.yml) | Manual deploy to **dev** (Render) or **prod** (EC2); optional migrations; **dev** runs integration smoke (`run_smoke_tests`, default on) before deploy email |
 | [**Rollback Backend (EC2)**](../.github/workflows/rollback-backend.yml) | Roll back **prod** to a previous build version |
 
 ### Deploy Backend
@@ -204,7 +204,7 @@ After **Deploy Backend** finishes, a summary email is sent when **notify on depl
 | `INTEGRATION_TEST_CUSTOMER_ID` | *(optional)* Happy-path create test (manual workflow input) |
 | `INTEGRATION_INTERNAL_SECRET` | *(optional)* JWT bypass for create-engagement smoke |
 
-Email includes: environment, build version (`<sha>-<run>`), per-service CI status, Render deploy id/status (dev), commit SHA, link to the GitHub Actions run.
+Email includes: environment, build version (`<sha>-<run>`), per-service CI status, Render deploy id/status (dev), **integration test summary** (dev deploys with `run_smoke_tests: true`), commit SHA, link to the GitHub Actions run.
 
 If secrets are unset, the notify step is skipped (deploy still succeeds).
 
