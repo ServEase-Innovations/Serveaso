@@ -2,7 +2,7 @@
 
 Living checklist for going live. Work through items **in order** (P0 → P3). Mark items `[x]` when complete; leave `[ ]` when not done.
 
-**Related docs:** [README](../README.md) · [DEPLOYMENT](./DEPLOYMENT.md) · [DATABASE_MIGRATIONS](./DATABASE_MIGRATIONS.md) · [DATABASE_SCHEMA](./DATABASE_SCHEMA.md) · [ENGAGEMENT_CANONICAL](./ENGAGEMENT_CANONICAL.md)
+**Related docs:** [README](../README.md) · [DEV_PROD_WEEK_CHECKLIST](./DEV_PROD_WEEK_CHECKLIST.md) · [DEPLOYMENT](./DEPLOYMENT.md) · [DATABASE_MIGRATIONS](./DATABASE_MIGRATIONS.md) · [DATABASE_SCHEMA](./DATABASE_SCHEMA.md) · [ENGAGEMENT_CANONICAL](./ENGAGEMENT_CANONICAL.md)
 
 ---
 
@@ -33,7 +33,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | 2026-06-07 | **S9** Hide debugMessage | providers + coupons omit `debugMessage` / `prismaMeta` when `NODE_ENV=production` |
 | 2026-06-07 | **ENV-1** Env matrix | [ENV_MATRIX.md](./ENV_MATRIX.md) — DEV Render vs PROD EC2 URLs and secrets |
 
-**Next:** DB-1 (prod migrations); align payments `INTERNAL_NOTIFY_SECRET` with utils on Render DEV; prod go-live smoke test.
+**Next:** Work [DEV_PROD_WEEK_CHECKLIST](./DEV_PROD_WEEK_CHECKLIST.md) — finish DEV smoke test + migrations, then PROD EC2 next week.
 
 ---
 

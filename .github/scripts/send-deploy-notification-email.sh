@@ -3,9 +3,10 @@
 set -euo pipefail
 
 REPORTS_DIR="${1:-./deploy-reports}"
-EMAILS="${DEPLOY_NOTIFY_EMAILS:-}"
-API_KEY="${SENDGRID_API_KEY:-}"
-FROM="${DEPLOY_NOTIFY_FROM:-deploy@serveaso.com}"
+EMAILS="$(printf '%s' "${DEPLOY_NOTIFY_EMAILS:-}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+API_KEY="$(printf '%s' "${SENDGRID_API_KEY:-}" | tr -d '\r\n[:space:]')"
+FROM="$(printf '%s' "${DEPLOY_NOTIFY_FROM:-deploy@serveaso.com}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+SENDGRID_API_URL="${SENDGRID_API_URL:-https://api.sendgrid.com/v3/mail/send}"
 WORKFLOW_STATUS="${WORKFLOW_STATUS:-unknown}"
 ENVIRONMENT="${ENVIRONMENT:-unknown}"
 BUILD_VERSION="${BUILD_VERSION:-unknown}"
@@ -70,24 +71,86 @@ PAYLOAD="$(jq -n \
     elif (.buildVersion // "") != "" then .buildVersion
     else "-" end;
 
+  def badge($text; $bg; $fg):
+    "<span style=\"display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;"
+    + "background:\($bg);color:\($fg);text-transform:uppercase;letter-spacing:0.03em;\">\($text)</span>";
+
+  def job_badge:
+    (.jobStatus // "unknown") as $s |
+    if $s == "success" then badge($s; "#d1fae5"; "#065f46")
+    elif ($s == "failure" or $s == "failed") then badge($s; "#fee2e2"; "#991b1b")
+    elif $s == "skipped" then badge($s; "#e5e7eb"; "#374151")
+    else badge($s; "#fef3c7"; "#92400e") end;
+
+  def render_badge:
+    (if (.renderStatus // "") != "" then .renderStatus else "-" end) as $r |
+    if $r == "live" then badge($r; "#d1fae5"; "#065f46")
+    elif ($r == "build_failed" or $r == "update_failed" or $r == "canceled") then badge($r; "#fee2e2"; "#991b1b")
+    elif $r == "-" then badge($r; "#f3f4f6"; "#6b7280")
+    else badge($r; "#dbeafe"; "#1e40af") end;
+
+  def meta_badge($value):
+    if $value == "success" then badge($value; "#d1fae5"; "#065f46")
+    elif ($value == "failure" or $value == "failed") then badge($value; "#fee2e2"; "#991b1b")
+    elif $value == "skipped" then badge($value; "#e5e7eb"; "#374151")
+    else badge($value; "#e0e7ff"; "#3730a3") end;
+
+  def service_bar:
+    (.jobStatus // "") as $s |
+    (if $s == "success" then "#10b981" else "#ef4444" end) as $color |
+    "<tr><td style=\"padding:8px 0;font-size:13px;color:#334155;width:140px;\">" + (.label // .service // "-")
+    + "</td><td style=\"padding:8px 0;\">"
+    + "<div style=\"background:#e2e8f0;border-radius:8px;height:14px;overflow:hidden;\">"
+    + "<div style=\"background:\($color);width:100%;height:14px;border-radius:8px;\"></div>"
+    + "</div></td><td style=\"padding:8px 0 8px 12px;width:90px;text-align:right;\">" + job_badge + "</td></tr>";
+
+  def donut_chart($ok; $total):
+    if $total == 0 then
+      "<svg width=\"140\" height=\"140\" viewBox=\"0 0 140 140\" xmlns=\"http://www.w3.org/2000/svg\">"
+      + "<circle cx=\"70\" cy=\"70\" r=\"54\" fill=\"none\" stroke=\"#e5e7eb\" stroke-width=\"14\"/>"
+      + "<text x=\"70\" y=\"76\" text-anchor=\"middle\" font-size=\"22\" font-weight=\"700\" fill=\"#6b7280\">0%</text>"
+      + "</svg>"
+    else
+      (($ok / $total) * 100 | floor) as $pct |
+      (2 * 3.14159265 * 54) as $circ |
+      ($circ * (1 - ($ok / $total))) as $offset |
+      (if $ok == $total then "#10b981" elif $ok == 0 then "#ef4444" else "#6366f1" end) as $stroke |
+      "<svg width=\"140\" height=\"140\" viewBox=\"0 0 140 140\" xmlns=\"http://www.w3.org/2000/svg\">"
+      + "<circle cx=\"70\" cy=\"70\" r=\"54\" fill=\"none\" stroke=\"#e5e7eb\" stroke-width=\"14\"/>"
+      + "<circle cx=\"70\" cy=\"70\" r=\"54\" fill=\"none\" stroke=\"\($stroke)\" stroke-width=\"14\""
+      + " stroke-linecap=\"round\" stroke-dasharray=\"\($circ)\" stroke-dashoffset=\"\($offset)\""
+      + " transform=\"rotate(-90 70 70)\"/>"
+      + "<text x=\"70\" y=\"68\" text-anchor=\"middle\" font-size=\"26\" font-weight=\"700\" fill=\"#111827\">\($pct)%</text>"
+      + "<text x=\"70\" y=\"88\" text-anchor=\"middle\" font-size=\"11\" fill=\"#6b7280\">success</text>"
+      + "</svg>"
+    end;
+
   ($reports[0]) as $rows |
   ($rows | length) as $total |
   ($rows | map(select(.jobStatus == "success")) | length) as $ok |
   ($total - $ok) as $failed |
+  (if $total > 0 then (($ok / $total) * 100 | floor) else 0 end) as $pct |
   (if $workflowStatus == "success" and $failed == 0 then
     "[OK] Serveaso deploy \($environment) - \($buildVersion) (\($ok)/\($total) services)"
   else
     "[!] Serveaso deploy \($environment) - \($buildVersion) (\($ok) ok, \($failed) failed)"
   end) as $subject |
-  (if $workflowStatus == "success" and $failed == 0 then "SUCCESS" else "ATTENTION" end) as $overall |
+  (if $workflowStatus == "success" and $failed == 0 then "All systems deployed" else "Review required" end) as $headline |
+  (if $workflowStatus == "success" and $failed == 0 then "#10b981" else "#f59e0b" end) as $accent |
+  (if $workflowStatus == "success" and $failed == 0 then "#ecfdf5" else "#fffbeb" end) as $accentBg |
+  ($rows | map(service_bar) | join("")) as $barRows |
   ($rows | map(
-    "<tr><td>" + (.label // .service // "-") + "</td>"
-    + "<td><code>" + (.service // "-") + "</code></td>"
-    + "<td>" + (.jobStatus // "-") + "</td>"
-    + "<td>" + (if (.renderStatus // "") != "" then .renderStatus else "-" end) + "</td>"
-    + "<td><code>" + deploy_cell + "</code></td>"
-    + "<td><code>" + short_sha + "</code></td></tr>"
+    "<tr>"
+    + "<td style=\"padding:12px 14px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b;\">" + (.label // .service // "-") + "</td>"
+    + "<td style=\"padding:12px 14px;border-bottom:1px solid #e2e8f0;\"><code style=\"background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;\">" + (.service // "-") + "</code></td>"
+    + "<td style=\"padding:12px 14px;border-bottom:1px solid #e2e8f0;\">" + job_badge + "</td>"
+    + "<td style=\"padding:12px 14px;border-bottom:1px solid #e2e8f0;\">" + render_badge + "</td>"
+    + "<td style=\"padding:12px 14px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569;\"><code>" + deploy_cell + "</code></td>"
+    + "<td style=\"padding:12px 14px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569;\"><code>" + short_sha + "</code></td>"
+    + "</tr>"
   ) | join("")) as $tableRows |
+  (if $total > 0 and $ok > 0 then (($ok / $total) * 100 | floor) else 0 end) as $okWidth |
+  (if $total > 0 and $failed > 0 then (($failed / $total) * 100 | floor) else 0 end) as $failWidth |
   ($emails | split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length > 0)) | map({email: .})) as $to |
   {
     personalizations: [{to: $to}],
@@ -96,35 +159,96 @@ PAYLOAD="$(jq -n \
     content: [{
       type: "text/html",
       value: (
-        "<!DOCTYPE html><html><body style=\"font-family:system-ui,sans-serif;color:#222\">"
-        + "<h2>Serveaso backend deployment - \($environment)</h2>"
-        + "<p><strong>Overall:</strong> \($overall)</p>"
-        + "<ul>"
-        + "<li><strong>Build version:</strong> <code>\($buildVersion)</code></li>"
-        + "<li><strong>Workflow status:</strong> \($workflowStatus)</li>"
-        + "<li><strong>DB migrations:</strong> \($migrateStatus)</li>"
-        + "<li><strong>Services:</strong> \($ok) succeeded, \($failed) failed (of \($total))</li>"
-        + "<li><strong>Workflow run:</strong> <a href=\"\($workflowUrl)\">\($workflowUrl)</a></li>"
-        + "</ul>"
-        + "<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse:collapse;font-size:14px\">"
-        + "<thead><tr style=\"background:#f4f4f4\">"
-        + "<th>Service</th><th>Key</th><th>CI job</th><th>Render status</th><th>Deploy / build id</th><th>Commit</th>"
-        + "</tr></thead><tbody>" + $tableRows + "</tbody></table>"
-        + "<p style=\"color:#666;font-size:12px\">Generated at \($generatedAt) UTC</p>"
-        + "</body></html>"
+        "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head>"
+        + "<body style=\"margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1e293b;\">"
+        + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f1f5f9;padding:24px 12px;\"><tr><td align=\"center\">"
+        + "<table role=\"presentation\" width=\"640\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:640px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);\">"
+
+        + "<tr><td style=\"background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#0ea5e9 100%);padding:28px 32px;color:#ffffff;\">"
+        + "<div style=\"font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.9;\">Serveaso Deploy Report</div>"
+        + "<div style=\"font-size:28px;font-weight:700;margin-top:8px;\">\($environment | ascii_upcase) deployment</div>"
+        + "<div style=\"font-size:15px;margin-top:6px;opacity:0.95;\">\($headline)</div>"
+        + "</td></tr>"
+
+        + "<tr><td style=\"padding:24px 32px 8px;\">"
+        + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>"
+        + "<td width=\"33%\" style=\"padding:8px;\"><div style=\"background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;text-align:center;\">"
+        + "<div style=\"font-size:28px;font-weight:700;color:#4f46e5;\">\($total)</div><div style=\"font-size:12px;color:#64748b;margin-top:4px;\">Services</div></div></td>"
+        + "<td width=\"33%\" style=\"padding:8px;\"><div style=\"background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:16px;text-align:center;\">"
+        + "<div style=\"font-size:28px;font-weight:700;color:#059669;\">\($ok)</div><div style=\"font-size:12px;color:#047857;margin-top:4px;\">Succeeded</div></div></td>"
+        + "<td width=\"33%\" style=\"padding:8px;\"><div style=\"background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px;text-align:center;\">"
+        + "<div style=\"font-size:28px;font-weight:700;color:#dc2626;\">\($failed)</div><div style=\"font-size:12px;color:#b91c1c;margin-top:4px;\">Failed</div></div></td>"
+        + "</tr></table></td></tr>"
+
+        + "<tr><td style=\"padding:8px 32px 24px;\">"
+        + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:\($accentBg);border:1px solid \($accent);border-radius:12px;\"><tr>"
+        + "<td style=\"padding:20px;width:160px;vertical-align:middle;text-align:center;\">" + donut_chart($ok; $total) + "</td>"
+        + "<td style=\"padding:20px 20px 20px 0;vertical-align:middle;\">"
+        + "<div style=\"font-size:14px;font-weight:600;color:#334155;margin-bottom:10px;\">Deploy health overview</div>"
+        + "<div style=\"background:#e2e8f0;border-radius:999px;height:18px;overflow:hidden;\">"
+        + (if $okWidth > 0 then "<div style=\"display:inline-block;background:#10b981;height:18px;width:\($okWidth)%;\"></div>" else "" end)
+        + (if $failWidth > 0 then "<div style=\"display:inline-block;background:#ef4444;height:18px;width:\($failWidth)%;\"></div>" else "" end)
+        + "</div>"
+        + "<div style=\"font-size:12px;color:#64748b;margin-top:8px;\">\($ok) of \($total) services healthy (\($pct)%)</div>"
+        + "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:14px;font-size:13px;\"><tr>"
+        + "<td style=\"padding-right:16px;\"><strong>Build</strong><br><code style=\"font-size:11px;\">\($buildVersion)</code></td>"
+        + "<td style=\"padding-right:16px;\"><strong>Workflow</strong><br>" + meta_badge($workflowStatus) + "</td>"
+        + "<td><strong>Migrations</strong><br>" + meta_badge($migrateStatus) + "</td>"
+        + "</tr></table>"
+        + "</td></tr></table></td></tr>"
+
+        + "<tr><td style=\"padding:0 32px 8px;\"><div style=\"font-size:16px;font-weight:700;color:#1e293b;\">Service status chart</div></td></tr>"
+        + "<tr><td style=\"padding:0 32px 24px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">" + $barRows + "</table></td></tr>"
+
+        + "<tr><td style=\"padding:0 32px 8px;\"><div style=\"font-size:16px;font-weight:700;color:#1e293b;\">Deployment details</div></td></tr>"
+        + "<tr><td style=\"padding:0 32px 24px;\">"
+        + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;font-size:13px;\">"
+        + "<thead><tr style=\"background:#f8fafc;\">"
+        + "<th align=\"left\" style=\"padding:12px 14px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;\">Service</th>"
+        + "<th align=\"left\" style=\"padding:12px 14px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;\">Key</th>"
+        + "<th align=\"left\" style=\"padding:12px 14px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;\">CI job</th>"
+        + "<th align=\"left\" style=\"padding:12px 14px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;\">Render</th>"
+        + "<th align=\"left\" style=\"padding:12px 14px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;\">Deploy id</th>"
+        + "<th align=\"left\" style=\"padding:12px 14px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;\">Commit</th>"
+        + "</tr></thead><tbody>" + $tableRows + "</tbody></table></td></tr>"
+
+        + "<tr><td style=\"padding:0 32px 28px;text-align:center;\">"
+        + "<a href=\"\($workflowUrl)\" style=\"display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;font-weight:600;"
+        + "padding:12px 24px;border-radius:10px;font-size:14px;\">View GitHub Actions run</a>"
+        + "<div style=\"font-size:12px;color:#94a3b8;margin-top:16px;\">Generated at \($generatedAt) UTC · Serveaso CI/CD</div>"
+        + "</td></tr>"
+
+        + "</table></td></tr></table></body></html>"
       )
     }]
   }
   ')"
 
-HTTP_CODE="$(curl -sS -o /tmp/sendgrid-response.json -w "%{http_code}" \
-  -X POST "https://api.sendgrid.com/v3/mail/send" \
+RECIPIENT_COUNT="$(printf '%s' "${PAYLOAD}" | jq '.personalizations[0].to | length')"
+if [[ "${RECIPIENT_COUNT}" -eq 0 ]]; then
+  echo "::warning::No valid recipient emails after parsing DEPLOY_NOTIFY_EMAILS."
+  exit 0
+fi
+
+echo "SendGrid: POST ${SENDGRID_API_URL} | from=${FROM} | recipients=${RECIPIENT_COUNT}"
+
+HTTP_CODE="$(curl -sS -D /tmp/sendgrid-response-headers.txt -o /tmp/sendgrid-response.json -w "%{http_code}" \
+  -X POST "${SENDGRID_API_URL}" \
   -H "Authorization: Bearer ${API_KEY}" \
   -H "Content-Type: application/json" \
   -d "${PAYLOAD}")"
 
+MESSAGE_ID="$(grep -i '^x-message-id:' /tmp/sendgrid-response-headers.txt 2>/dev/null | sed 's/^[Xx]-[Mm]essage-[Ii]d:[[:space:]]*//' | tr -d '\r')"
+
 if [[ "${HTTP_CODE}" == "202" ]]; then
-  echo "Deployment notification email sent to: ${EMAILS}"
+  echo "Deployment notification email accepted by SendGrid (HTTP 202)."
+  echo "Recipients: ${EMAILS}"
+  if [[ -n "${MESSAGE_ID}" ]]; then
+    echo "SendGrid message id: ${MESSAGE_ID}"
+    echo "Search Activity for this id or recipient in the same SendGrid account that owns the API key."
+  else
+    echo "::notice::SendGrid returned 202 but no X-Message-Id header — confirm you are viewing the correct SendGrid account/subuser."
+  fi
 else
   echo "::warning::SendGrid returned HTTP ${HTTP_CODE}: $(cat /tmp/sendgrid-response.json)"
 fi
