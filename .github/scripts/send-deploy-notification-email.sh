@@ -95,7 +95,7 @@ PAYLOAD="$(jq -n \
     subject: $subject,
     content: [{
       type: "text/html",
-      value:
+      value: (
         "<!DOCTYPE html><html><body style=\"font-family:system-ui,sans-serif;color:#222\">"
         + "<h2>Serveaso backend deployment - \($environment)</h2>"
         + "<p><strong>Overall:</strong> \($overall)</p>"
@@ -112,6 +112,7 @@ PAYLOAD="$(jq -n \
         + "</tr></thead><tbody>" + $tableRows + "</tbody></table>"
         + "<p style=\"color:#666;font-size:12px\">Generated at \($generatedAt) UTC</p>"
         + "</body></html>"
+      )
     }]
   }
   ')"
