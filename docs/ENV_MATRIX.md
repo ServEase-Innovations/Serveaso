@@ -175,8 +175,10 @@ Generate: `openssl rand -hex 32`
 
 | Variable | DEV | PROD |
 |----------|-----|------|
-| `MONGODB_URI` | dev Mongo | prod |
-| `CLOUDINARY_*` | dev Cloudinary | prod |
+| `MONGO_URI` or `MONGODB_URI` | dev Mongo (required) | prod |
+| `CLOUDINARY_CLOUD_NAME` / `API_KEY` / `API_SECRET` | dev Cloudinary | prod |
+| `CORS_ORIGINS` | Netlify + localhost | prod domain |
+| Start command on Render | `npm start` | `npm start` |
 
 ---
 
