@@ -23,12 +23,16 @@ if [[ -z "${API_KEY}" ]]; then
   exit 0
 fi
 
-mapfile -t REPORT_FILES < <(find "${REPORTS_DIR}" -name 'deploy-report.json' -type f 2>/dev/null | sort)
+mapfile -t REPORT_FILES < <(
+  find "${REPORTS_DIR}" -type f \( -name 'deploy-report.json' -o -name 'deploy-report-*.json' \) 2>/dev/null | sort
+)
 if [[ ${#REPORT_FILES[@]} -eq 0 ]]; then
-  echo "::warning::No deploy-report.json files found under ${REPORTS_DIR}"
+  echo "::warning::No deploy report JSON files found under ${REPORTS_DIR}"
   ls -laR "${REPORTS_DIR}" 2>/dev/null || true
   exit 0
 fi
+
+echo "Found ${#REPORT_FILES[@]} deploy report file(s): ${REPORT_FILES[*]}"
 
 MERGED="$(mktemp)"
 VALID_FILES=()
@@ -47,7 +51,10 @@ if [[ ${#VALID_FILES[@]} -eq 0 ]]; then
   exit 0
 fi
 
-jq -s '.' "${VALID_FILES[@]}" > "${MERGED}"
+# Each artifact file is one service object; produce a single JSON array for the email template.
+jq -s '[.[] | if type == "array" then .[] else . end | select(type == "object")]' "${VALID_FILES[@]}" > "${MERGED}"
+SERVICE_COUNT="$(jq 'length' "${MERGED}")"
+echo "Merged ${SERVICE_COUNT} service report(s) for email."
 
 PAYLOAD="$(jq -n \
   --arg from "${FROM}" \
@@ -125,7 +132,8 @@ PAYLOAD="$(jq -n \
       + "</svg>"
     end;
 
-  ($reports[0]) as $rows |
+  ($reports[0]) as $raw |
+  (if ($raw | type) == "array" then $raw else [$raw] end) as $rows |
   ($rows | length) as $total |
   ($rows | map(select(.jobStatus == "success")) | length) as $ok |
   ($total - $ok) as $failed |

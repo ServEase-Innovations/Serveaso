@@ -397,14 +397,14 @@ jobs:
             SUBMODULE_SHA="$(git -C "${{ steps.cfg.outputs.path }}" rev-parse HEAD 2>/dev/null || true)"
           fi
           export SUBMODULE_SHA
-          .github/scripts/write-deploy-report.sh deploy-report.json
+          .github/scripts/write-deploy-report.sh "deploy-report-${{ matrix.service }}.json"
 
       - name: Upload deploy report
         if: always() && inputs.notify_on_deploy == true
         uses: actions/upload-artifact@v4
         with:
           name: deploy-report-${{ matrix.service }}-${{ github.run_number }}
-          path: deploy-report.json
+          path: deploy-report-${{ matrix.service }}.json
           if-no-files-found: ignore
 
   notify-deployment:
