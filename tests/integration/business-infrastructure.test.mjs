@@ -63,6 +63,15 @@ describe("Infrastructure services — health & readiness", () => {
     assert.equal(json?.service, "tickets");
   });
 
+  it("tickets GET /ready — Postgres connected", async (t) => {
+    const { status, json } = await getReady("tickets", serviceUrls.tickets);
+    if (status === 404) {
+      return t.skip("tickets /ready not deployed yet");
+    }
+    assert.equal(status, 200);
+    assert.equal(json?.status, "ready");
+  });
+
   it("imageUploader exposes API docs", async () => {
     const { status } = await httpJson(
       "GET",

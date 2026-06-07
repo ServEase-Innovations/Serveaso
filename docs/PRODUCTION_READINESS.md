@@ -168,11 +168,12 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 
 | Capability | Status |
 |------------|--------|
-| Prometheus `/metrics` | payments, providers, coupons, preferences, utils |
+| Prometheus `/metrics` | **All 9 backends** — payments, providers, utils, coupons, preferences, reviews, tickets, chat, image-uploader |
 | Structured logging | payments, providers, coupons, utils |
-| Per-service `/health` + `/ready` | payments, providers, coupons, utils — **done**; preferences, reviews, tickets vary |
+| Per-service `/health` + `/ready` | All 9 backends (tickets `/ready` added with metrics rollout) |
 | Platform status | utils `GET /api/platform-status` (admin only) |
-| Prod alerting | **Not defined** — Grafana stacks exist for local Docker only |
+| Grafana Cloud (DEV) | Scrape config + overview dashboard in `monitoring/` — see `monitoring/GRAFANA_CLOUD.md` |
+| Prod alerting | Configure in Grafana Cloud after DEV validation (see `monitoring/GRAFANA_CLOUD.md` § Alerts) |
 
 ### Pre-launch ops checklist
 

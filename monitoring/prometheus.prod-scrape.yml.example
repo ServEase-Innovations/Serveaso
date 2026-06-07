@@ -1,0 +1,70 @@
+# Copy to prometheus.prod-scrape.yml and fill EC2/ALB hostnames before prod go-live.
+# Set environment: prod on every target.
+
+global:
+  scrape_interval: 30s
+  scrape_timeout: 25s
+
+scrape_configs:
+  - job_name: serveaso-payments-prod
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["REPLACE_PROD_PAYMENTS_HOST"]
+        labels: { service: payments, environment: prod }
+
+  - job_name: serveaso-providers-prod
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["REPLACE_PROD_PROVIDERS_HOST"]
+        labels: { service: providers, environment: prod }
+
+  - job_name: serveaso-utils-prod
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["REPLACE_PROD_UTILS_HOST"]
+        labels: { service: utils, environment: prod }
+
+  - job_name: serveaso-coupons-prod
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["REPLACE_PROD_COUPONS_HOST"]
+        labels: { service: coupons, environment: prod }
+
+  - job_name: serveaso-preferences-prod
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["REPLACE_PROD_PREFERENCES_HOST"]
+        labels: { service: preferences, environment: prod }
+
+  - job_name: serveaso-reviews-prod
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["REPLACE_PROD_REVIEWS_HOST"]
+        labels: { service: reviews, environment: prod }
+
+  - job_name: serveaso-tickets-prod
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["REPLACE_PROD_TICKETS_HOST"]
+        labels: { service: tickets, environment: prod }
+
+  - job_name: serveaso-chat-prod
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["REPLACE_PROD_CHAT_HOST"]
+        labels: { service: chat, environment: prod }
+
+  - job_name: serveaso-image-uploader-prod
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["REPLACE_PROD_IMAGE_UPLOADER_HOST"]
+        labels: { service: image-uploader, environment: prod }

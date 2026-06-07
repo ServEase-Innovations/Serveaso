@@ -15,6 +15,8 @@ import { assertCorsOriginsProduction } from "./src/lib/corsOrigins.js";
 import imageRoutes from "./src/routes/image.routes.js";
 import fileRoutes from "./src/routes/file.routes.js";
 import { swaggerSpec } from "./src/config/swaggerSpec.js";
+import requestMetrics from "./src/middleware/requestMetrics.js";
+import { getMetrics, metricsContentType } from "./src/monitoring/prometheus.js";
 import { v2 as cloudinary } from "cloudinary";
 
 cloudinary.config({
@@ -29,6 +31,7 @@ if (process.env.NODE_ENV === "production") {
 
 const app = express();
 app.use(corsMiddleware);
+app.use(requestMetrics);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -55,6 +58,15 @@ app.get("/ready", (_req, res) => {
     status: ready ? "ready" : "not_ready",
     service: "image-uploader",
   });
+});
+
+app.get("/metrics", async (_req, res, next) => {
+  try {
+    res.set("Content-Type", metricsContentType);
+    res.end(await getMetrics());
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get("/", (_req, res) => {

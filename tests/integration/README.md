@@ -29,6 +29,7 @@ export INTEGRATION_INTERNAL_SECRET='...'
 | `health.test.mjs` | Core service liveness (`/health`, `/ready` fallbacks) |
 | `business-infrastructure.test.mjs` | tickets, preferences, chat, image-uploader health + DB readiness |
 | `business-platform.test.mjs` | Utils — public platform settings, customer email lookup |
+| `metrics.test.mjs` | All backends — `GET /metrics` Prometheus exposition |
 | `business-registration.test.mjs` | Providers — check-email / check-mobile before signup |
 | `business-pricing.test.mjs` | Payments — pricing plans, on-demand & monthly quotes |
 | `business-coupons.test.mjs` | Coupons list/validate + payments coupon proxy |

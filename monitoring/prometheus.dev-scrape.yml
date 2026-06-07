@@ -1,0 +1,72 @@
+# Grafana Alloy / Agent scrape config — Serveaso DEV (Render).
+# Import in Grafana Cloud → Connections → Collector → Alloy config, or run locally with Grafana Agent.
+#
+# Each job scrapes GET /metrics (public, no auth). Filter dashboards by label `service`.
+
+global:
+  scrape_interval: 30s
+  scrape_timeout: 25s
+
+scrape_configs:
+  - job_name: serveaso-payments-dev
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["payments-vyqp.onrender.com"]
+        labels: { service: payments, environment: dev }
+
+  - job_name: serveaso-providers-dev
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["providers-k8w7.onrender.com"]
+        labels: { service: providers, environment: dev }
+
+  - job_name: serveaso-utils-dev
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["utils-jo6c.onrender.com"]
+        labels: { service: utils, environment: dev }
+
+  - job_name: serveaso-coupons-dev
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["coupons-o26r.onrender.com"]
+        labels: { service: coupons, environment: dev }
+
+  - job_name: serveaso-preferences-dev
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["preferences.onrender.com"]
+        labels: { service: preferences, environment: dev }
+
+  - job_name: serveaso-reviews-dev
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["reviews-7aal.onrender.com"]
+        labels: { service: reviews, environment: dev }
+
+  - job_name: serveaso-tickets-dev
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["tickets-3gc8.onrender.com"]
+        labels: { service: tickets, environment: dev }
+
+  - job_name: serveaso-chat-dev
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["chat-b3wl.onrender.com"]
+        labels: { service: chat, environment: dev }
+
+  - job_name: serveaso-image-uploader-dev
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["imageuploader-5njj.onrender.com"]
+        labels: { service: image-uploader, environment: dev }

@@ -1,0 +1,30 @@
+// Grafana Alloy — scrape Serveaso DEV Render /metrics and remote_write to Grafana Cloud.
+// 1. Replace GRAFANA_CLOUD_PROMETHEUS_URL and GRAFANA_CLOUD_API_KEY from your stack.
+// 2. alloy run monitoring/alloy.dev.river
+
+prometheus.remote_write "cloud" {
+  endpoint {
+    url = env("GRAFANA_CLOUD_PROMETHEUS_URL")
+    basic_auth {
+      username = env("GRAFANA_CLOUD_PROMETHEUS_USER")
+      password = env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+}
+
+local.file_match "dev_targets" {
+  path_targets = [{ __path__ = "monitoring/prometheus.dev-scrape.yml" }]
+}
+
+// For Alloy, convert YAML jobs to prometheus.scrape blocks — example for one service:
+
+prometheus.scrape "payments_dev" {
+  targets = [{ __address__ = "payments-vyqp.onrender.com", service = "payments", environment = "dev" }]
+  forward_to = [prometheus.remote_write.cloud.receiver]
+  scheme = "https"
+  metrics_path = "/metrics"
+  scrape_interval = "30s"
+}
+
+// Repeat prometheus.scrape blocks for each service in prometheus.dev-scrape.yml,
+// or use a single Alloy module that loops targets from a JSON file.
