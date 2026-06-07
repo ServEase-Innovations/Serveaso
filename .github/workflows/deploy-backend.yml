@@ -41,6 +41,11 @@ on:
         required: false
         type: boolean
         default: true
+      notify_on_deploy:
+        description: Email deploy summary (requires DEPLOY_NOTIFY_EMAILS + SENDGRID_API_KEY)
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: deploy-backend-${{ inputs.environment }}-${{ inputs.service }}
@@ -374,3 +379,58 @@ jobs:
             echo "- EC2 path: \`${{ steps.ec2path.outputs.path }}\`" >> "$GITHUB_STEP_SUMMARY"
             echo "- Rollback: run **Rollback Backend** workflow with this version." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Write deploy report (notify email)
+        if: always() && inputs.notify_on_deploy == true
+        env:
+          SERVICE: ${{ matrix.service }}
+          SERVICE_LABEL: ${{ steps.cfg.outputs.label }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          BUILD_VERSION: ${{ env.BUILD_VERSION }}
+          JOB_STATUS: ${{ job.status }}
+          RENDER_SVC_ID: ${{ env.RENDER_SVC_ID }}
+          EC2_PATH: ${{ steps.ec2path.outputs.path }}
+        run: |
+          chmod +x .github/scripts/write-deploy-report.sh
+          SUBMODULE_SHA=""
+          if [[ -n "${{ steps.cfg.outputs.path }}" && -d "${{ steps.cfg.outputs.path }}/.git" ]]; then
+            SUBMODULE_SHA="$(git -C "${{ steps.cfg.outputs.path }}" rev-parse HEAD 2>/dev/null || true)"
+          fi
+          export SUBMODULE_SHA
+          .github/scripts/write-deploy-report.sh deploy-report.json
+
+      - name: Upload deploy report
+        if: always() && inputs.notify_on_deploy == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-report-${{ matrix.service }}-${{ github.run_number }}
+          path: deploy-report.json
+          if-no-files-found: ignore
+
+  notify-deployment:
+    needs: [resolve-matrix, migrate-database, deploy]
+    if: always() && needs.resolve-matrix.result == 'success' && inputs.notify_on_deploy == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download deploy reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: deploy-report-*-${{ github.run_number }}
+          merge-multiple: true
+          path: deploy-reports
+
+      - name: Send deployment email
+        env:
+          DEPLOY_NOTIFY_EMAILS: ${{ secrets.DEPLOY_NOTIFY_EMAILS }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          DEPLOY_NOTIFY_FROM: ${{ secrets.DEPLOY_NOTIFY_FROM }}
+          WORKFLOW_STATUS: ${{ needs.deploy.result }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          BUILD_VERSION: ${{ env.BUILD_VERSION }}
+          MIGRATE_STATUS: ${{ needs.migrate-database.result }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          chmod +x .github/scripts/send-deploy-notification-email.sh
+          .github/scripts/send-deploy-notification-email.sh deploy-reports

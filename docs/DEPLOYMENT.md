@@ -189,6 +189,20 @@ To **wait for the deploy**, **fail the job on build failure**, and show **build/
 | `RENDER_SERVICE_ID_IMAGE_UPLOADER` | … |
 | `RENDER_SERVICE_ID_CHAT` | … |
 
+### Deployment notification email (optional)
+
+After **Deploy Backend** finishes, a summary email is sent when **notify on deploy** is enabled (default).
+
+| Secret | Description |
+|--------|-------------|
+| `DEPLOY_NOTIFY_EMAILS` | Comma-separated recipients (e.g. `ops@serveaso.com,ronit@serveaso.com`) |
+| `SENDGRID_API_KEY` | [SendGrid](https://sendgrid.com) API key with **Mail Send** permission |
+| `DEPLOY_NOTIFY_FROM` | *(optional)* From address verified in SendGrid (default `deploy@serveaso.com`) |
+
+Email includes: environment, build version (`<sha>-<run>`), per-service CI status, Render deploy id/status (dev), commit SHA, link to the GitHub Actions run.
+
+If secrets are unset, the notify step is skipped (deploy still succeeds).
+
 **Payments only:** set `RENDER_API_KEY` + `RENDER_SERVICE_ID_PAYMENTS`; other services can omit service IDs until you want logs for them too.
 
 On **Deploy Backend** → `dev`, leave **wait_for_render** enabled (default). The workflow runs three steps:

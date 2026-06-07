@@ -397,18 +397,33 @@ tail -n 80 "${APP_LOG_FILE}" 2>/dev/null || echo "(no app logs)"
 append_summary "Build logs" "${BUILD_LOG_FILE}"
 append_summary "App logs (sample)" "${APP_LOG_FILE}"
 
+write_deploy_outcome() {
+  local outcome_status="$1"
+  local out_file="${RUNNER_TEMP:-/tmp}/render-deploy-outcome.json"
+  mkdir -p "$(dirname "${out_file}")"
+  jq -n \
+    --arg serviceId "${SERVICE_ID}" \
+    --arg deployId "${DEPLOY_ID}" \
+    --arg status "${outcome_status}" \
+    '{serviceId: $serviceId, deployId: $deployId, status: $status}' > "${out_file}"
+}
+
 case "${status}" in
   live)
+    write_deploy_outcome "${status}"
     echo "Render deploy succeeded (deploy ${DEPLOY_ID})."
     exit 0
     ;;
   build_failed|update_failed)
+    write_deploy_outcome "${status}"
     fail_job "Render deploy failed (${status}). Service ${SERVICE_ID}, deploy ${DEPLOY_ID}. Open Render → service → Deploys for full logs."
     ;;
   canceled|deactivated)
+    write_deploy_outcome "${status}"
     fail_job "Render deploy ended with status: ${status} (deploy ${DEPLOY_ID})."
     ;;
   *)
+    write_deploy_outcome "${status}"
     fail_job "Unexpected Render deploy status: ${status} (deploy ${DEPLOY_ID}). Only 'live' is treated as success."
     ;;
 esac

@@ -193,6 +193,9 @@ Generate: `openssl rand -hex 32`
 | `RENDER_API_KEY` | Wait for Render deploy + logs |
 | `GH_PAT` | Push submodules before Render deploy |
 | `PROD_ENV_*` | Full `.env` body per service for EC2 prod deploy |
+| `DEPLOY_NOTIFY_EMAILS` | Comma-separated — deployment summary email recipients |
+| `SENDGRID_API_KEY` | SendGrid API key for deploy notification emails |
+| `DEPLOY_NOTIFY_FROM` | *(optional)* Verified sender in SendGrid |
 
 ---
 
