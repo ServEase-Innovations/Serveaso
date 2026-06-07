@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { serviceUrls } from "./lib/config.mjs";
+import { serviceUrls, getTestCustomerId } from "./lib/config.mjs";
 import { httpJson } from "./lib/http.mjs";
 
 describe("Coupons service", () => {
@@ -35,7 +35,7 @@ describe("Coupons service", () => {
 
 describe("Coupons proxy (payments → coupons)", () => {
   it("GET /api/coupons/customer/:id returns structured customer coupons", async () => {
-    const customerId = process.env.INTEGRATION_TEST_CUSTOMER_ID?.trim() || "1";
+    const customerId = getTestCustomerId();
     const { status, json } = await httpJson(
       "GET",
       `${serviceUrls.payments}/api/coupons/customer/${customerId}?serviceType=COOK`

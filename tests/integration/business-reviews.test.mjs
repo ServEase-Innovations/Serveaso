@@ -1,11 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { serviceUrls } from "./lib/config.mjs";
+import { serviceUrls, getTestProviderId } from "./lib/config.mjs";
 import { httpJson } from "./lib/http.mjs";
 
 describe("Reviews service", () => {
   it("GET /reviews/providers/:id/reviews returns provider rating summary", async () => {
-    const providerId = process.env.INTEGRATION_TEST_PROVIDER_ID?.trim() || "1";
+    const providerId = getTestProviderId();
     const { status, json } = await httpJson(
       "GET",
       `${serviceUrls.reviews}/reviews/providers/${providerId}/reviews`

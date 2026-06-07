@@ -449,6 +449,4 @@ jobs:
       inputs.environment == 'dev' &&
       needs.deploy.result == 'success'
     uses: ./.github/workflows/integration-tests.yml
-    with:
-      run_create_happy_path: false
     secrets: inherit

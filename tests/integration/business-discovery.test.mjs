@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { serviceUrls } from "./lib/config.mjs";
+import { serviceUrls, getTestCustomerId } from "./lib/config.mjs";
 import { httpJson } from "./lib/http.mjs";
 import { futureYmd, monthAfterYmd } from "./lib/dates.mjs";
 
@@ -41,6 +41,7 @@ describe("Provider discovery (payments V2)", () => {
         endDate: end,
         preferredStartTime: "09:00",
         serviceDurationMinutes: 60,
+        customerId: getTestCustomerId(),
         limit: 5,
       },
     });

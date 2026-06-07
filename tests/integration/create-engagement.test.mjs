@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { serviceUrls } from "./lib/config.mjs";
+import { serviceUrls, getTestCustomerId } from "./lib/config.mjs";
 import { httpJson } from "./lib/http.mjs";
 import { internalAuthHeaders } from "./lib/auth.mjs";
 import { futureYmd } from "./lib/dates.mjs";
@@ -36,15 +36,8 @@ describe("POST /api/v2/createEngagements (DEV live)", () => {
     assert.match(json?.error || "", /customer not found/i);
   });
 
-  it("creates ON_DEMAND engagement when INTEGRATION_TEST_CUSTOMER_ID is set", async (t) => {
-    const raw = process.env.INTEGRATION_TEST_CUSTOMER_ID?.trim();
-    if (!raw) {
-      return t.skip("Set INTEGRATION_TEST_CUSTOMER_ID to run happy-path create test");
-    }
-    const customerId = Number(raw);
-    if (!Number.isFinite(customerId) || customerId <= 0) {
-      return t.skip("INTEGRATION_TEST_CUSTOMER_ID must be a positive integer");
-    }
+  it("creates ON_DEMAND engagement for DEV test customer", async () => {
+    const customerId = getTestCustomerId();
 
     const { status, json } = await httpJson("POST", createUrl, {
       headers: internalAuthHeaders(),

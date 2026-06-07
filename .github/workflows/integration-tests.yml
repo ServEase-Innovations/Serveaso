@@ -5,11 +5,6 @@ name: Integration Tests (DEV)
 
 on:
   workflow_dispatch:
-    inputs:
-      run_create_happy_path:
-        description: Run create-engagement 201 test (needs INTEGRATION_TEST_CUSTOMER_ID secret)
-        type: boolean
-        default: false
 
   push:
     branches: [main]
@@ -25,11 +20,6 @@ on:
     - cron: "0 6 * * *"
 
   workflow_call:
-    inputs:
-      run_create_happy_path:
-        description: Run create-engagement 201 test
-        type: boolean
-        default: false
 
 concurrency:
   group: integration-tests-dev-${{ github.event_name }}-${{ github.ref }}
@@ -65,7 +55,8 @@ jobs:
           INTEGRATION_IMAGE_UPLOADER_URL: ${{ secrets.DEV_IMAGE_UPLOADER_URL }}
           RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
           INTEGRATION_INTERNAL_SECRET: ${{ secrets.INTEGRATION_INTERNAL_SECRET }}
-          INTEGRATION_TEST_CUSTOMER_ID: ${{ (inputs.run_create_happy_path == true) && secrets.INTEGRATION_TEST_CUSTOMER_ID || '' }}
+          INTEGRATION_TEST_CUSTOMER_ID: ${{ secrets.INTEGRATION_TEST_CUSTOMER_ID }}
+          INTEGRATION_TEST_PROVIDER_ID: ${{ secrets.INTEGRATION_TEST_PROVIDER_ID }}
         run: |
           echo "### Integration tests (DEV)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Trigger: **${{ github.event_name }}**" >> "$GITHUB_STEP_SUMMARY"

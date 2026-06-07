@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { serviceUrls } from "./lib/config.mjs";
+import { serviceUrls, getTestCustomerId } from "./lib/config.mjs";
 import { httpJson } from "./lib/http.mjs";
 import { internalAuthHeaders } from "./lib/auth.mjs";
 import { futureYmd } from "./lib/dates.mjs";
@@ -25,15 +25,10 @@ describe("Booking flow — quote then create (payments)", () => {
     const quotedTotal = Number(quoteRes.json?.total);
     assert.ok(quotedTotal > 0);
 
-    const rawCustomer = process.env.INTEGRATION_TEST_CUSTOMER_ID?.trim();
-    if (!rawCustomer) {
-      return t.skip("Set INTEGRATION_TEST_CUSTOMER_ID to run quote→create flow test");
-    }
-
     const createRes = await httpJson("POST", `${serviceUrls.payments}/api/v2/createEngagements`, {
       headers: internalAuthHeaders(),
       body: {
-        customerid: Number(rawCustomer),
+        customerid: getTestCustomerId(),
         start_date: startDate,
         start_time: "10:00",
         booking_type: "ON_DEMAND",

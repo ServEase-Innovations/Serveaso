@@ -211,7 +211,8 @@ Default prod behavior is **encrypt-only** unless `POSTGRES_SSL_REJECT_UNAUTHORIZ
 | `DEPLOY_NOTIFY_FROM` | *(optional)* Verified sender in SendGrid |
 | `DEV_PAYMENTS_URL` … `DEV_IMAGE_UPLOADER_URL` | *(optional)* Integration-test URL overrides |
 | `RAZORPAY_WEBHOOK_SECRET` | *(optional)* Live signed webhook smoke test |
-| `INTEGRATION_TEST_CUSTOMER_ID` | *(optional)* Happy-path create test (manual workflow only) |
+| `INTEGRATION_TEST_CUSTOMER_ID` | *(optional)* Default `1` in integration tests |
+| `INTEGRATION_TEST_PROVIDER_ID` | *(optional)* Default `2` in integration tests |
 | `INTEGRATION_INTERNAL_SECRET` | *(optional)* JWT bypass for create-engagement smoke |
 
 ---
