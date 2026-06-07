@@ -160,7 +160,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 - [x] **S8** — JWT on mutating APIs: Auth0 `express-jwt` on payments + providers (registration, pricing quote, webhooks exempt); set `AUTH0_DOMAIN` + `AUTH0_AUDIENCE`
 - [x] **S9** — `debugMessage` in API errors: stripped in production (providers, coupons)
 - [x] **S10** — Postgres `rejectUnauthorized: false` (coupons + providers): AWS RDS CA bundle + strict TLS in prod (`postgresSsl.js`, `certs/rds-global-bundle.pem`)
-- [ ] **S11** — Customer payment data exposure: audit all roles (SP API already cleaned)
+- [x] **S11** — Customer payment data exposure: role-based response redaction (payments + providers `responseRedaction.js`; Razorpay IDs stripped from verify; provider discovery omits email/phone/bank/KYC)
 
 ---
 

@@ -66,7 +66,7 @@ Run on Netlify DEV + Render DEV:
 ### F. Code quality on DEV (do now — protects PROD deploy)
 
 - [x] **S10** — coupons + providers Postgres SSL: RDS CA bundle (`certs/rds-global-bundle.pem`); redeploy and verify `/health` + `/ready`
-- [ ] **S11** — Quick audit: no payment/PII leakage in provider/customer API responses
+- [x] **S11** — Quick audit: no payment/PII leakage in provider/customer API responses (`responseRedaction.js` on payments + providers)
 - [ ] **CI-1** — PR workflow: lint + reviews typecheck (even minimal)
 - [ ] **TEST-1** — 3–5 integration tests (health, webhook HMAC, create engagement) against dev URLs
 - [ ] Deploy notification email (optional): `DEPLOY_NOTIFY_FROM=info@serveaso.com` (domain must match SendGrid auth)
