@@ -11,7 +11,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | Area | Status |
 |------|--------|
 | Phase 0 — Blockers | 5 / 6 |
-| Phase 1 — Secure & stable | 0 / 6 |
+| Phase 1 — Secure & stable | 3 / 6 |
 | Phase 2 — Quality & observability | 0 / 5 |
 | Phase 3 — Polish | 0 / 4 |
 | Go / no-go gate | 0 / 6 |
@@ -27,8 +27,11 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | 2026-06-02 | **S5** `.env.example` scrub | Removed real cloud IPs/passwords; localhost placeholders only |
 | 2026-06-02 | **S4** Prod secret validation | payments + utils fail startup in production if dev defaults or missing Razorpay/internal secrets |
 | 2026-06-02 | **S3** Admin route protection | `X-Admin-Push-Secret` on utils destructive routes + platform-settings (PUT); payments `/api/admin/*`; public cancellation read |
+| 2026-06-02 | **S6–S7** CORS + Socket.IO | `CORS_ORIGINS` on payments, providers, utils, coupons; Socket.IO uses same list; prod startup fails if unset |
+| 2026-06-02 | **OPS-1** Health endpoints | `GET /health` + `GET /ready` on payments, providers, coupons, utils |
+| 2026-06-02 | **S8** JWT on mutations | Auth0 JWT on POST/PUT/PATCH/DELETE in payments + providers (public registration/pricing/webhook paths exempt) |
 
-**Next:** DB-1 (prod migrations on prod Postgres).
+**Next:** DB-1 (prod migrations on prod Postgres); set `CORS_ORIGINS` + `AUTH0_*` on Render/EC2 before prod deploy.
 
 ---
 
@@ -147,12 +150,12 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 - [x] **S3** — Admin / settings APIs protected via `X-Admin-Push-Secret` (`ADMIN_PUSH_SECRET`); public `GET /api/platform-settings/public` for cancellation policy only
 - [x] **S4** — Default dev secrets in prod path: `validateProductionSecrets` in payments + utils; rejects `serveaso-test-push-secret`, missing `RAZORPAY_WEBHOOK_SECRET`, Razorpay test key defaults, skip-verify flags
 - [x] **S5** — Real IPs/passwords in `.env.example` files: replaced with `127.0.0.1` / `your_*` placeholders
-- [ ] **S6** — CORS `*` / permissive (providers, payments, utils): explicit production origins only
-- [ ] **S7** — Socket.IO origins in `payments/index.js` (localhost + Netlify only): add production web + mobile origins
+- [x] **S6** — CORS `*` / permissive (providers, payments, utils, coupons): `CORS_ORIGINS` env; prod startup validation
+- [x] **S7** — Socket.IO origins in `payments/index.js`: uses `CORS_ORIGINS` / `SOCKET_IO_ORIGINS`; utils WebSocket `verifyClient`
 
 ### P1 — high
 
-- [ ] **S8** — No JWT on business APIs: Auth0 `express-jwt` (or API gateway) on providers, payments, coupons, reviews
+- [x] **S8** — JWT on mutating APIs: Auth0 `express-jwt` on payments + providers (registration, pricing quote, webhooks exempt); set `AUTH0_DOMAIN` + `AUTH0_AUDIENCE`
 - [ ] **S9** — `debugMessage` in API errors: strip in production responses
 - [ ] **S10** — Postgres `rejectUnauthorized: false` (coupons): use proper CA bundle
 - [ ] **S11** — Customer payment data exposure: audit all roles (SP API already cleaned)
@@ -165,7 +168,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 |------------|--------|
 | Prometheus `/metrics` | payments, providers, coupons, preferences, utils |
 | Structured logging | payments, providers, coupons, utils |
-| Per-service `/health` | preferences, reviews, tickets — **missing on payments, providers, coupons** |
+| Per-service `/health` + `/ready` | payments, providers, coupons, utils — **done**; preferences, reviews, tickets vary |
 | Platform status | utils `GET /api/platform-status` (admin only) |
 | Prod alerting | **Not defined** — Grafana stacks exist for local Docker only |
 
@@ -208,9 +211,9 @@ Mark `[x]` when done. Work in order within each phase.
 
 ### Phase 1 — Secure & stable (week 2)
 
-- [ ] **Step 7 · S6–S7** — Lock CORS + Socket.IO to prod domains *(payments, providers, utils, UI, ~3h)*
-- [ ] **Step 8 · S8** — JWT middleware on mutating APIs (start with payments + providers) *(backend, 2–3d)*
-- [ ] **Step 9 · OPS-1** — Add `/health` + `/ready` to payments, providers, coupons, utils *(backend, ~1d)*
+- [x] **Step 7 · S6–S7** — Lock CORS + Socket.IO to prod domains via `CORS_ORIGINS` *(payments, providers, utils, coupons)*
+- [x] **Step 8 · S8** — JWT middleware on mutating APIs (payments + providers) *(set `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`)*
+- [x] **Step 9 · OPS-1** — `/health` + `/ready` on payments, providers, coupons, utils
 - [ ] **Step 10 · ENV-1** — Prod env matrix doc: every `REACT_APP_*` and service URL *(DevOps + UI, ~2h)*
 - [ ] **Step 11 · S9** — Gate `debugMessage` behind non-production *(providers, coupons, ~2h)*
 - [ ] **Step 12 · DB-2** — Remove coupons `patchCouponSchema` boot DDL after 096 verified *(coupons, ~2h)*
@@ -262,4 +265,4 @@ Deploy & migrate                           → .github/workflows/, docs/DEPLOYME
 
 ---
 
-*Last updated: 2026-06-02 — Phase 0 code complete except DB-1. Next: prod `npm run db:migrate`.*
+*Last updated: 2026-06-02 — S6–S7, OPS-1, S8 done. Phase 0 still needs DB-1. Before prod: set `CORS_ORIGINS`, `AUTH0_*`, redeploy all services.*
