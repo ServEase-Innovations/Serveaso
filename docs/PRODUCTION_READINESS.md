@@ -32,8 +32,9 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | 2026-06-02 | **S8** JWT on mutations | Auth0 JWT on POST/PUT/PATCH/DELETE in payments + providers (public registration/pricing/webhook paths exempt) |
 | 2026-06-07 | **S9** Hide debugMessage | providers + coupons omit `debugMessage` / `prismaMeta` when `NODE_ENV=production` |
 | 2026-06-07 | **ENV-1** Env matrix | [ENV_MATRIX.md](./ENV_MATRIX.md) — DEV Render vs PROD EC2 URLs and secrets |
+| 2026-06-09 | **TEST-1 / E2** DEV smoke | Automated 57 pass + manual UI (Auth0 → book → pay → provider → admin) on Netlify DEV |
 
-**Next:** Work [DEV_PROD_WEEK_CHECKLIST](./DEV_PROD_WEEK_CHECKLIST.md) — redeploy coupons + providers (S10), DEV smoke test + migrations, then PROD EC2 next week.
+**Next:** Prod week — EC2 deploy, **DB-1** prod migrate, Phase 4 observability. See [DEV_PROD_WEEK_CHECKLIST](./DEV_PROD_WEEK_CHECKLIST.md) § Next week.
 
 ---
 
@@ -266,4 +267,4 @@ Deploy & migrate                           → .github/workflows/, docs/DEPLOYME
 
 ---
 
-*Last updated: 2026-06-09 — DB-2 done (coupons boot DDL removed). Phase 0 still needs DB-1 (prod). See [ENV_MATRIX.md](./ENV_MATRIX.md) and [monitoring/GRAFANA_CLOUD.md](../monitoring/GRAFANA_CLOUD.md).*
+*Last updated: 2026-06-09 — DEV smoke gate complete (E1 + E2). Phase 0 still needs DB-1 (prod). See [ENV_MATRIX.md](./ENV_MATRIX.md) and [monitoring/GRAFANA_CLOUD.md](../monitoring/GRAFANA_CLOUD.md).*

@@ -64,23 +64,19 @@ npm run test:integration
 - [x] **2026-06-09** — deploy email: `57 pass`, `0 fail`, `1 skip`; metrics **9/9**; all services **live**
 - Covers: all `/health` + `/ready`, `/metrics` 9/9, quote→create engagement, coupons, pricing, reviews, webhook HMAC unit, platform-settings public
 
-**E2 — Manual UI smoke** (Netlify DEV + Render DEV) — **🔄 IN PROGRESS**
+**E2 — Manual UI smoke** (Netlify DEV + Render DEV) — **✅ DONE**
 
 UI: **https://servease-innovation.netlify.app**
 
-Work in order; tick each step as you complete it:
-
 | Step | Flow | Done |
 |------|------|------|
-| 1 | Customer register / login (Auth0) | [ ] |
-| 2 | Browse providers → get quote → create booking | [ ] |
-| 3 | Razorpay **test** payment; webhook **200** in [Razorpay Dashboard](https://dashboard.razorpay.com) | [ ] |
-| 4 | Provider login → accept booking; notifications / Socket.IO update | [ ] |
-| 5 | Provider start → OTP → complete (or cancel flow) | [ ] |
-| 6 | Admin → Settings → platform-status (not bare API URL) | [ ] |
-| 7 | Optional: coupon `MAID99-1ST` / `COOK99-1ST`, review, ticket | [ ] |
-
-**If something fails:** note step number, browser error, and Network tab status code — fix before prod week.
+| 1 | Customer register / login (Auth0) | [x] |
+| 2 | Browse providers → get quote → create booking | [x] |
+| 3 | Razorpay **test** payment; webhook **200** in Razorpay Dashboard | [x] |
+| 4 | Provider login → accept booking; notifications / Socket.IO update | [x] |
+| 5 | Provider start → OTP → complete (or cancel flow) | [x] |
+| 6 | Admin → Settings → platform-status (not bare API URL) | [x] |
+| 7 | Optional: coupon, review, ticket | [x] optional |
 
 ### F. Code quality on DEV (do now — protects PROD deploy)
 
@@ -91,9 +87,9 @@ Work in order; tick each step as you complete it:
 - [x] **TEST-1** — Integration tests: `npm run test:integration`; CI on push/daily/post-dev-deploy
 - [ ] Deploy notification email (optional): `DEPLOY_NOTIFY_FROM=info@serveaso.com` (domain must match SendGrid auth)
 
-**DEV is done when:** A + B + C + D + **E1** ✅ + **E2** (all steps 1–6) are checked.
+**DEV is done when:** A + B + C + D + **E1** ✅ + **E2** ✅ are checked.
 
-**Current focus:** E2 manual UI on Netlify — prod week blocked until steps 1–6 pass.
+**Status:** E1 + E2 complete. Confirm **B, C, D** if not already ticked — then DEV gate is clear for prod week.
 
 ---
 
@@ -181,4 +177,4 @@ npm run db:install && npm run db:migrate
 
 ---
 
-*Last updated: 2026-06-09 — E2 manual UI smoke in progress; E1 + DB + deploy pipeline green.*
+*Last updated: 2026-06-09 — E2 manual UI smoke complete; E1 + DB + deploy pipeline green.*
