@@ -18,38 +18,38 @@ One-page runbook. Tick boxes as you go.
 
 Set on **every** deployed backend (`NODE_ENV=production`):
 
-- [ ] `CORS_ORIGINS` = `http://localhost:3000,https://servease-innovation.netlify.app` (adjust if UI host changes)
+- [x] `CORS_ORIGINS` = `http://localhost:3000,https://servease-innovation.netlify.app` (adjust if UI host changes)
 
 | Service | `/health` 200 | `/ready` 200 | Critical env |
 |---------|---------------|--------------|--------------|
-| payments | [ ] | [ ] | `INTERNAL_NOTIFY_SECRET`, Razorpay **test** keys, `AUTH0_*`, `UTILS_SERVICE_URL` |
-| providers | [ ] | [ ] | `AUTH0_*`, `JWT_PROTECT_MUTATIONS=true` |
-| utils | [ ] | [ ] | `ADMIN_PUSH_SECRET`, `MONGO_URI`, `AUTH0_*` (M2M) |
-| coupons | [ ] | [ ] | `DATABASE_URL` |
-| preferences | [ ] | [ ] | `MONGO_URI`, `DB_NAME=serveaso` |
-| reviews | [ ] | — | `DATABASE_URL` |
-| tickets | [ ] | — | `ADMIN_TICKET_SECRET`, `PAYMENTS_SERVICE_URL` |
-| chat | [ ] | — | `MONGO_URI`, `CORS_ORIGINS` |
-| imageUploader | [ ] | — | `MONGO_URI`, Cloudinary, start cmd `npm start` |
+| payments | [x] | [x] | `INTERNAL_NOTIFY_SECRET`, Razorpay **test** keys, `AUTH0_*`, `UTILS_SERVICE_URL` |
+| providers | [x] | [x] | `AUTH0_*`, `JWT_PROTECT_MUTATIONS=true` |
+| utils | [x] | [x] | `ADMIN_PUSH_SECRET`, `MONGO_URI`, `AUTH0_*` (M2M) |
+| coupons | [x] | [x] | `DATABASE_URL` |
+| preferences | [x] | [x] | `MONGO_URI`, `DB_NAME=serveaso` |
+| reviews | [x] | — | `DATABASE_URL` |
+| tickets | [x] | — | `ADMIN_TICKET_SECRET`, `PAYMENTS_SERVICE_URL` |
+| chat | [x] | — | `MONGO_URI`, `CORS_ORIGINS` |
+| imageUploader | [x] | — | `MONGO_URI`, Cloudinary, start cmd `npm start` |
 
 ### C. Secret alignment (DEV — all must match)
 
 Generate once per env: `openssl rand -hex 32`
 
-- [ ] utils `ADMIN_PUSH_SECRET` = ____________________
-- [ ] payments `INTERNAL_NOTIFY_SECRET` = **same as above**
-- [ ] tickets `ADMIN_TICKET_SECRET` = **same as above**
-- [ ] Netlify `REACT_APP_ADMIN_PUSH_SECRET` = **same as above** → **redeploy UI**
+- [x] utils `ADMIN_PUSH_SECRET` aligned
+- [x] payments `INTERNAL_NOTIFY_SECRET` = same as above
+- [x] tickets `ADMIN_TICKET_SECRET` = same as above
+- [x] Netlify `REACT_APP_ADMIN_PUSH_SECRET` = same as above (UI redeployed)
 
 ### D. Netlify UI (build-time — redeploy after changes)
 
-- [ ] `REACT_APP_PAYMENTS_URL` → `https://payments-vyqp.onrender.com`
-- [ ] `REACT_APP_SOCKET_URL` → same as payments
-- [ ] `REACT_APP_PROVIDER_URL` → `https://providers-k8w7.onrender.com`
-- [ ] `REACT_APP_UTILS_URL` → `https://utils-jo6c.onrender.com`
-- [ ] `REACT_APP_PREFERENCES_URL`, `REACT_APP_COUPONS_URL`, `REACT_APP_REVIEWS_URL` (`reviews-7aal`), `REACT_APP_TICKETS_URL` (`tickets-3gc8`), `REACT_APP_CHAT_URL`, `REACT_APP_IMAGE_UPLOADER_URL`
-- [ ] Auth0 `REACT_APP_AUTH0_*` → dev tenant
-- [ ] `REACT_APP_ADMIN_PUSH_SECRET` aligned (see C)
+- [x] `REACT_APP_PAYMENTS_URL` → `https://payments-vyqp.onrender.com`
+- [x] `REACT_APP_SOCKET_URL` → same as payments
+- [x] `REACT_APP_PROVIDER_URL` → `https://providers-k8w7.onrender.com`
+- [x] `REACT_APP_UTILS_URL` → `https://utils-jo6c.onrender.com`
+- [x] `REACT_APP_PREFERENCES_URL`, `REACT_APP_COUPONS_URL`, `REACT_APP_REVIEWS_URL` (`reviews-7aal`), `REACT_APP_TICKETS_URL` (`tickets-3gc8`), `REACT_APP_CHAT_URL`, `REACT_APP_IMAGE_UPLOADER_URL`
+- [x] Auth0 `REACT_APP_AUTH0_*` → dev tenant
+- [x] `REACT_APP_ADMIN_PUSH_SECRET` aligned (see C)
 
 ### E. DEV smoke test (gate before PROD work)
 
@@ -87,9 +87,9 @@ UI: **https://servease-innovation.netlify.app**
 - [x] **TEST-1** — Integration tests: `npm run test:integration`; CI on push/daily/post-dev-deploy
 - [ ] Deploy notification email (optional): `DEPLOY_NOTIFY_FROM=info@serveaso.com` (domain must match SendGrid auth)
 
-**DEV is done when:** A + B + C + D + **E1** ✅ + **E2** ✅ are checked.
+**DEV is done when:** A + B + C + D + **E1** + **E2** are checked.
 
-**Status:** E1 + E2 complete. Confirm **B, C, D** if not already ticked — then DEV gate is clear for prod week.
+**Status: ✅ DEV GATE COMPLETE** — ready for prod week (EC2 + DB-1 + Phase 4 observability).
 
 ---
 
@@ -177,4 +177,4 @@ npm run db:install && npm run db:migrate
 
 ---
 
-*Last updated: 2026-06-09 — E2 manual UI smoke complete; E1 + DB + deploy pipeline green.*
+*Last updated: 2026-06-09 — DEV gate complete (A–F + E1 + E2). Prod week next.*
