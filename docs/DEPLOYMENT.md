@@ -151,7 +151,7 @@ Render **reviews** builds from **`ServEase-Innovations/reviews`**, not the Serve
 
 | Problem | Fix |
 |---------|-----|
-| **`GITHUB_TOKEN` cannot push `reviews`** | Add Serveaso secret **`GH_PAT`**: fine-grained PAT with **Contents: Read and write** on `reviews` (and other service repos you deploy). CI pushes `services/reviews` before triggering Render. |
+| **`GITHUB_TOKEN` cannot push `reviews`** / **403 on `imageUploader`** | Add Serveaso secret **`GH_PAT`**: fine-grained PAT with **Contents: Read and write** on each service repo you deploy (`reviews`, `imageUploader`, etc.). CI pushes submodules (or mirrors `services/imageUploader`) before triggering Render. |
 | Only monorepo pushed | Push submodule: `cd services/reviews && git push origin main`, or use **Deploy Backend** with `GH_PAT` set. |
 | Hook queued / `pending` | Use latest `main` on remote (push first). Enable **Auto-Deploy** on Render for `main` as backup. |
 | Manual Deploy works, CI does not | Almost always **missing `GH_PAT`** or wrong `RENDER_DEPLOY_HOOK_REVIEWS` secret. |

@@ -5,11 +5,15 @@ set -euo pipefail
 
 SERVICE_PATH="${1:?Service path required (e.g. services/reviews)}"
 
-GIT_TOKEN="${GH_PAT:-${GITHUB_TOKEN:-}}"
-if [[ -z "${GIT_TOKEN}" ]]; then
-  echo "::error::Set GitHub secret GH_PAT (PAT with contents:write on the service repo, e.g. reviews). GITHUB_TOKEN cannot push to other repos."
-  exit 1
-fi
+require_git_token() {
+  local purpose="$1"
+  local token="${GH_PAT:-}"
+  if [[ -z "${token}" ]]; then
+    echo "::error::${purpose} requires GitHub secret GH_PAT (fine-grained PAT with Contents: Read and write on the target service repo). GITHUB_TOKEN only works inside the Serveaso monorepo — it cannot push to ServEase-Innovations/imageUploader or other service repos."
+    exit 1
+  fi
+  printf '%s' "${token}"
+}
 
 mirror_remote_for_path() {
   case "$1" in
@@ -22,7 +26,9 @@ mirror_push_folder_to_repo() {
   local SRC="$1"
   local REPO_PATH="$2"
   local BRANCH="${RENDER_DEPLOY_BRANCH:-main}"
-  local PUSH_URL="https://x-access-token:${GIT_TOKEN}@github.com/${REPO_PATH}.git"
+  local TOKEN
+  TOKEN="$(require_git_token "Mirror push to github.com/${REPO_PATH}")"
+  local PUSH_URL="https://x-access-token:${TOKEN}@github.com/${REPO_PATH}.git"
   local WORK
   WORK="$(mktemp -d)"
 
@@ -81,7 +87,8 @@ else
   exit 1
 fi
 
-PUSH_URL="https://x-access-token:${GIT_TOKEN}@github.com/${REPO_PATH}.git"
+TOKEN="$(require_git_token "Push github.com/${REPO_PATH}")"
+PUSH_URL="https://x-access-token:${TOKEN}@github.com/${REPO_PATH}.git"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git config user.name "github-actions[bot]"
 
