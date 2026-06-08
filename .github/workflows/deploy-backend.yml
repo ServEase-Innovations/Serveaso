@@ -448,29 +448,30 @@ jobs:
           merge-multiple: true
           path: deploy-reports
 
-      - name: Download observability report
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          pattern: observability-report-${{ github.run_id }}
-          merge-multiple: true
-          path: observability-reports
-
-      - name: Ensure observability report for email
+      - name: Probe /metrics for deploy email
         if: inputs.run_smoke_tests == true && inputs.environment == 'dev'
-        continue-on-error: true
+        id: observability-email
         env:
           GRAFANA_DASHBOARD_URL: ${{ vars.GRAFANA_DASHBOARD_URL }}
         run: |
           mkdir -p observability-reports
-          if find observability-reports -name 'observability-report.json' -type f | grep -q .; then
-            echo "Observability report artifact found."
-            find observability-reports -name 'observability-report.json' -type f
-            exit 0
-          fi
-          echo "::warning::Observability artifact missing — re-running probe for deploy email."
           chmod +x .github/scripts/observability-smoke.sh
+          set +e
           .github/scripts/observability-smoke.sh observability-reports/observability-report.json
+          smoke_rc=$?
+          set -e
+          report="observability-reports/observability-report.json"
+          if [[ ! -f "${report}" ]]; then
+            echo "::error::observability-report.json was not created"
+            exit 1
+          fi
+          jq . "${report}"
+          echo "status=$(jq -r '.status' "${report}")" >> "$GITHUB_OUTPUT"
+          echo "up=$(jq -r '.up' "${report}")" >> "$GITHUB_OUTPUT"
+          echo "total=$(jq -r '.total' "${report}")" >> "$GITHUB_OUTPUT"
+          echo "down=$(jq -r '.down' "${report}")" >> "$GITHUB_OUTPUT"
+          echo "smoke_rc=${smoke_rc}" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Send deployment email
         continue-on-error: true
@@ -489,11 +490,11 @@ jobs:
           INTEGRATION_PASS: ${{ needs.smoke-integration.outputs.integration_pass }}
           INTEGRATION_FAIL: ${{ needs.smoke-integration.outputs.integration_fail }}
           INTEGRATION_SKIP: ${{ needs.smoke-integration.outputs.integration_skip }}
-          OBSERVABILITY_JOB_RESULT: ${{ needs.smoke-observability.result }}
-          OBSERVABILITY_STATUS: ${{ needs.smoke-observability.outputs.observability_status }}
-          OBSERVABILITY_UP: ${{ needs.smoke-observability.outputs.observability_up }}
-          OBSERVABILITY_TOTAL: ${{ needs.smoke-observability.outputs.observability_total }}
-          OBSERVABILITY_DOWN: ${{ needs.smoke-observability.outputs.observability_down }}
+          OBSERVABILITY_JOB_RESULT: ${{ steps.observability-email.outputs.status || needs.smoke-observability.result }}
+          OBSERVABILITY_STATUS: ${{ steps.observability-email.outputs.status || needs.smoke-observability.outputs.observability_status }}
+          OBSERVABILITY_UP: ${{ steps.observability-email.outputs.up || needs.smoke-observability.outputs.observability_up }}
+          OBSERVABILITY_TOTAL: ${{ steps.observability-email.outputs.total || needs.smoke-observability.outputs.observability_total }}
+          OBSERVABILITY_DOWN: ${{ steps.observability-email.outputs.down || needs.smoke-observability.outputs.observability_down }}
           GRAFANA_DASHBOARD_URL: ${{ vars.GRAFANA_DASHBOARD_URL }}
           OBSERVABILITY_REPORTS_DIR: observability-reports
         run: |

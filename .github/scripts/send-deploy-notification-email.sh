@@ -83,9 +83,22 @@ OBS_JQ_ARGS=()
 if [[ -n "${OBS_REPORT_FILE}" ]] && jq -e . "${OBS_REPORT_FILE}" >/dev/null 2>&1; then
   OBS_JQ_ARGS+=(--slurpfile obsReport "${OBS_REPORT_FILE}")
   echo "Loaded observability report: ${OBS_REPORT_FILE}"
+  # Prefer on-disk report over reusable-workflow outputs (often empty in caller job).
+  OBSERVABILITY_STATUS="$(jq -r '.status // empty' "${OBS_REPORT_FILE}")"
+  OBSERVABILITY_UP="$(jq -r '.up // empty' "${OBS_REPORT_FILE}")"
+  OBSERVABILITY_TOTAL="$(jq -r '.total // empty' "${OBS_REPORT_FILE}")"
+  OBSERVABILITY_DOWN="$(jq -r '.down // empty' "${OBS_REPORT_FILE}")"
+  if [[ -n "${OBSERVABILITY_STATUS}" ]]; then
+    OBSERVABILITY_JOB_RESULT="${OBSERVABILITY_STATUS}"
+  fi
+  echo "Observability from report: ${OBSERVABILITY_UP}/${OBSERVABILITY_TOTAL} up (${OBSERVABILITY_STATUS})"
 else
   OBS_JQ_ARGS+=(--argjson obsReport '[{}]')
+  echo "::warning::No observability-report.json found under ${OBSERVABILITY_REPORTS_DIR}"
 fi
+
+# workflow_dispatch booleans may arrive as true/false/True — normalize for jq.
+RUN_SMOKE_TESTS="$(printf '%s' "${RUN_SMOKE_TESTS}" | tr '[:upper:]' '[:lower:]')"
 
 PAYLOAD="$(jq -n \
   --arg from "${FROM}" \
@@ -204,7 +217,9 @@ PAYLOAD="$(jq -n \
   ($obsTotalStr | if . == "" then 0 else tonumber end) as $obsTotal |
   ($obsDownStr | if . == "" then 0 else tonumber end) as $obsDown |
   (if $observabilityRan then
-    if (($obsDown > 0) or $observabilityStatus == "failure" or $observabilityJobResult == "failure") then "failure"
+    if $obsTotal > 0 then
+      if $obsDown > 0 then "failure" else "success" end
+    elif (($obsDown > 0) or $observabilityStatus == "failure" or $observabilityJobResult == "failure") then "failure"
     elif $observabilityJobResult == "success" or $observabilityStatus == "success" then "success"
     else $observabilityJobResult end
   else "skipped" end) as $observabilityOutcome |
