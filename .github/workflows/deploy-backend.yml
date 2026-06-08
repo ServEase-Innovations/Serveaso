@@ -430,6 +430,8 @@ jobs:
       inputs.environment == 'dev' &&
       needs.deploy.result == 'success'
     uses: ./.github/workflows/observability-smoke.yml
+    with:
+      artifact_run_id: ${{ github.run_id }}
     secrets: inherit
 
   notify-deployment:
@@ -450,9 +452,25 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          pattern: observability-report-${{ github.run_number }}
+          pattern: observability-report-${{ github.run_id }}
           merge-multiple: true
           path: observability-reports
+
+      - name: Ensure observability report for email
+        if: inputs.run_smoke_tests == true && inputs.environment == 'dev'
+        continue-on-error: true
+        env:
+          GRAFANA_DASHBOARD_URL: ${{ vars.GRAFANA_DASHBOARD_URL }}
+        run: |
+          mkdir -p observability-reports
+          if find observability-reports -name 'observability-report.json' -type f | grep -q .; then
+            echo "Observability report artifact found."
+            find observability-reports -name 'observability-report.json' -type f
+            exit 0
+          fi
+          echo "::warning::Observability artifact missing — re-running probe for deploy email."
+          chmod +x .github/scripts/observability-smoke.sh
+          .github/scripts/observability-smoke.sh observability-reports/observability-report.json
 
       - name: Send deployment email
         continue-on-error: true

@@ -6,6 +6,12 @@ on:
   workflow_dispatch:
 
   workflow_call:
+    inputs:
+      artifact_run_id:
+        description: Caller workflow run id — keeps artifact names aligned for download
+        required: false
+        type: string
+        default: ""
     outputs:
       observability_status:
         description: success or failure
@@ -28,10 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      observability_status: ${{ steps.smoke.outputs.status }}
-      observability_up: ${{ steps.smoke.outputs.up }}
-      observability_total: ${{ steps.smoke.outputs.total }}
-      observability_down: ${{ steps.smoke.outputs.down }}
+      observability_status: ${{ steps.parse.outputs.status }}
+      observability_up: ${{ steps.parse.outputs.up }}
+      observability_total: ${{ steps.parse.outputs.total }}
+      observability_down: ${{ steps.parse.outputs.down }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,6 +52,21 @@ jobs:
           .github/scripts/observability-smoke.sh observability-report.json
           rc=$?
           set -e
+          echo "smoke_exit=${rc}" >> "$GITHUB_OUTPUT"
+          exit "${rc}"
+
+      - name: Parse observability summary
+        id: parse
+        if: always()
+        run: |
+          if [[ ! -f observability-report.json ]]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "up=0" >> "$GITHUB_OUTPUT"
+            echo "total=0" >> "$GITHUB_OUTPUT"
+            echo "down=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::observability-report.json missing after smoke step"
+            exit 0
+          fi
           status="$(jq -r '.status' observability-report.json)"
           up="$(jq -r '.up' observability-report.json)"
           total="$(jq -r '.total' observability-report.json)"
@@ -59,12 +80,11 @@ jobs:
           if [[ "${down}" -gt 0 ]]; then
             echo "- Down: $(jq -r '.down_services | join(", ")' observability-report.json)" >> "$GITHUB_STEP_SUMMARY"
           fi
-          exit "${rc}"
 
       - name: Upload observability report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: observability-report-${{ github.run_number }}
+          name: observability-report-${{ inputs.artifact_run_id || github.run_id }}
           path: observability-report.json
           if-no-files-found: warn

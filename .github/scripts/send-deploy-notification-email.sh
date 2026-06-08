@@ -70,8 +70,11 @@ SERVICE_COUNT="$(jq 'length' "${MERGED}")"
 echo "Merged ${SERVICE_COUNT} service report(s) for email."
 
 OBS_REPORT_FILE=""
-if [[ -f "${OBSERVABILITY_REPORTS_DIR}/observability-report.json" ]]; then
-  OBS_REPORT_FILE="${OBSERVABILITY_REPORTS_DIR}/observability-report.json"
+mapfile -t OBS_CANDIDATES < <(
+  find "${OBSERVABILITY_REPORTS_DIR}" -name 'observability-report.json' -type f 2>/dev/null | sort
+)
+if [[ ${#OBS_CANDIDATES[@]} -gt 0 ]]; then
+  OBS_REPORT_FILE="${OBS_CANDIDATES[0]}"
 elif [[ -f "observability-report.json" ]]; then
   OBS_REPORT_FILE="observability-report.json"
 fi
@@ -194,9 +197,9 @@ PAYLOAD="$(jq -n \
   else "Integration: skipped" end) as $integrationSummary |
   (if ($environment | ascii_downcase) == "dev" and $runSmokeTests == "true" and $observabilityJobResult != "skipped" then true else false end) as $observabilityRan |
   (($obsReport[0] // {}) | if type == "object" then . else {} end) as $obsData |
-  (if ($obsData.up // "") != "" then ($obsData.up | tostring) else $observabilityUp end) as $obsUpStr |
-  (if ($obsData.total // "") != "" then ($obsData.total | tostring) else $observabilityTotal end) as $obsTotalStr |
-  (if ($obsData.down // "") != "" then ($obsData.down | tostring) else $observabilityDown end) as $obsDownStr |
+  (if ($obsData | has("up")) then ($obsData.up | tostring) elif $observabilityUp != "" then $observabilityUp else "0" end) as $obsUpStr |
+  (if ($obsData | has("total")) then ($obsData.total | tostring) elif $observabilityTotal != "" then $observabilityTotal else "0" end) as $obsTotalStr |
+  (if ($obsData | has("down")) then ($obsData.down | tostring) elif $observabilityDown != "" then $observabilityDown else "0" end) as $obsDownStr |
   ($obsUpStr | if . == "" then 0 else tonumber end) as $obsUp |
   ($obsTotalStr | if . == "" then 0 else tonumber end) as $obsTotal |
   ($obsDownStr | if . == "" then 0 else tonumber end) as $obsDown |
