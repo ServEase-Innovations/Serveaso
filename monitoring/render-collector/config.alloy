@@ -1,0 +1,35 @@
+// Serveaso DEV — scrape Render /metrics → Grafana Cloud Prometheus.
+// Required env on Render: GRAFANA_PROMETHEUS_URL, GRAFANA_PROMETHEUS_USER, GRAFANA_API_KEY
+// Optional: SCRAPE_ENV (default dev)
+
+prometheus.remote_write "grafana_cloud" {
+  endpoint {
+    url = env("GRAFANA_PROMETHEUS_URL")
+
+    basic_auth {
+      username = env("GRAFANA_PROMETHEUS_USER")
+      password = env("GRAFANA_API_KEY")
+    }
+  }
+}
+
+prometheus.scrape "serveaso_render_dev" {
+  targets = [
+    { __address__ = "payments-vyqp.onrender.com",       service = "payments",       environment = "dev" },
+    { __address__ = "providers-k8w7.onrender.com",      service = "providers",      environment = "dev" },
+    { __address__ = "utils-jo6c.onrender.com",          service = "utils",          environment = "dev" },
+    { __address__ = "coupons-o26r.onrender.com",        service = "coupons",        environment = "dev" },
+    { __address__ = "preferences.onrender.com",         service = "preferences",    environment = "dev" },
+    { __address__ = "reviews-7aal.onrender.com",        service = "reviews",        environment = "dev" },
+    { __address__ = "tickets-3gc8.onrender.com",        service = "tickets",        environment = "dev" },
+    { __address__ = "chat-b3wl.onrender.com",           service = "chat",           environment = "dev" },
+    { __address__ = "imageuploader-5njj.onrender.com",  service = "image-uploader", environment = "dev" },
+  ]
+
+  forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+  job_name        = "serveaso-render-dev"
+  scrape_interval = "30s"
+  scrape_timeout  = "25s"
+  scheme          = "https"
+  metrics_path    = "/metrics"
+}
