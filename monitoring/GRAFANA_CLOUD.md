@@ -2,7 +2,7 @@
 
 Roll out on **DEV (Render)** first. When `/metrics` passes integration tests on all services, copy scrape targets to **prod** and import the same dashboards with `environment=prod`.
 
-## Status (DEV) — updated 2026-06-08
+## Status (DEV) — updated 2026-06-09
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -10,7 +10,7 @@ Roll out on **DEV (Render)** first. When `/metrics` passes integration tests on 
 | **Phase 2** — Grafana Cloud + collector | **Done** | Stack `maityronit18-prom`, Render worker `serveaso-metrics-collector`, `up{job="serveaso-render-dev"}` = 9 × `1` |
 | **Phase 2** — Overview dashboard | **Done** | `Serveaso — API overview` imported; metrics env = `production` on Render DEV |
 | **Phase 2** — Deploy email observability | **Done** | Post-deploy smoke in `.github/workflows/observability-smoke.yml` + deploy notification |
-| **Phase 2** — `GRAFANA_DASHBOARD_URL` | Optional | GitHub Actions variable for dashboard link in deploy email |
+| **Phase 2** — `GRAFANA_DASHBOARD_URL` | **Done** | GitHub Actions variable — dashboard link in deploy email |
 | **Phase 3** — DEV alert rules | **Done** | Folder `Serveaso DEV`, evaluation group `serveaso-dev`, 4 rules + email contact point |
 | **Phase 4** — Prod | **Not started** | EC2 scrape targets + `Serveaso PROD` folder |
 
@@ -81,7 +81,7 @@ Use the **Render Background Worker** collector (recommended). Hosted Grafana Clo
 | 2.3 | Render worker `serveaso-metrics-collector` deployed | ✅ |
 | 2.4 | Explore: `up{job="serveaso-render-dev"}` → 9 × `1` | ✅ |
 | 2.5 | Import **Serveaso — API overview** dashboard | ✅ |
-| 2.6 | GitHub variable `GRAFANA_DASHBOARD_URL` (deploy email link) | ☐ optional |
+| 2.6 | GitHub variable `GRAFANA_DASHBOARD_URL` (deploy email link) | ✅ |
 
 Run local verification:
 
