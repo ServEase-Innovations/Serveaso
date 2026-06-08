@@ -14,7 +14,7 @@
       "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [
         {
-          "expr": "up{environment=~\"$environment\"}",
+          "expr": "up{job=\"serveaso-render-dev\"}",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -29,7 +29,7 @@
       "id": 2,
       "targets": [
         {
-          "expr": "sum by (service) (rate(http_requests_total{environment=~\"$environment\"}[5m]))",
+          "expr": "sum by (service) (rate(http_requests_total{environment=~\"$metrics_environment\"}[5m]))",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -44,7 +44,7 @@
       "id": 3,
       "targets": [
         {
-          "expr": "sum by (service) (rate(http_requests_total{environment=~\"$environment\",status_code=~\"5..\"}[5m]))",
+          "expr": "sum by (service) (rate(http_requests_total{environment=~\"$metrics_environment\",status_code=~\"5..\"}[5m]))",
           "legendFormat": "{{service}} 5xx",
           "refId": "A"
         }
@@ -59,7 +59,7 @@
       "id": 4,
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_ms_bucket{environment=~\"$environment\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_ms_bucket{environment=~\"$metrics_environment\"}[5m])))",
           "legendFormat": "{{service}} p95",
           "refId": "A"
         }
@@ -74,7 +74,7 @@
       "id": 5,
       "targets": [
         {
-          "expr": "process_resident_memory_bytes{environment=~\"$environment\"}",
+          "expr": "process_resident_memory_bytes{environment=~\"$metrics_environment\"}",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -89,7 +89,7 @@
       "id": 6,
       "targets": [
         {
-          "expr": "sum by (service) (rate(socket_io_connections_total{environment=~\"$environment\"}[5m]))",
+          "expr": "sum by (service) (rate(socket_io_connections_total{environment=~\"$metrics_environment\"}[5m]))",
           "legendFormat": "{{service}} connects/s",
           "refId": "A"
         }
@@ -104,7 +104,7 @@
       "id": 7,
       "targets": [
         {
-          "expr": "sum by (service, action, result) (rate(coupon_actions_total{environment=~\"$environment\"}[5m]))",
+          "expr": "sum by (service, action, result) (rate(coupon_actions_total{environment=~\"$metrics_environment\"}[5m]))",
           "legendFormat": "{{service}} {{action}} {{result}}",
           "refId": "A"
         }
@@ -119,14 +119,16 @@
   "templating": {
     "list": [
       {
-        "current": { "text": "dev", "value": "dev" },
-        "label": "Environment",
-        "name": "environment",
+        "current": { "text": "production", "value": "production" },
+        "description": "NODE_ENV on Render DEV is production; set METRICS_ENVIRONMENT=dev on services to use dev here",
+        "label": "Metrics environment",
+        "name": "metrics_environment",
         "options": [
-          { "text": "dev", "value": "dev", "selected": true },
-          { "text": "prod", "value": "prod", "selected": false }
+          { "text": "production", "value": "production", "selected": true },
+          { "text": "dev", "value": "dev", "selected": false },
+          { "text": "development", "value": "development", "selected": false }
         ],
-        "query": "dev,prod",
+        "query": "production,dev,development",
         "type": "custom"
       },
       {

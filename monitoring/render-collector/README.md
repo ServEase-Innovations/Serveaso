@@ -52,6 +52,20 @@ up{job="serveaso-render-dev"}
 
 Expect **9** series at `1` (one per backend). Any `0` → that service needs redeploy with `/metrics`.
 
+**HTTP panels** use `environment="production"` on Render DEV (`NODE_ENV=production`). See [`../GRAFANA_CLOUD.md`](../GRAFANA_CLOUD.md) Phase 2.
+
+## Step 4 — Import dashboard
+
+```bash
+export GRAFANA_URL="https://YOURSTACK.grafana.net"
+export GRAFANA_API_TOKEN="glc_..."
+./monitoring/scripts/grafana-import-dashboard.sh
+```
+
+Or **Dashboards → Import** → upload [`../dashboards/serveaso-overview.json`](../dashboards/serveaso-overview.json).
+
+Set GitHub Actions variable **`GRAFANA_DASHBOARD_URL`** to the dashboard URL (deploy email link).
+
 ## Troubleshooting
 
 | Log / symptom | Fix |

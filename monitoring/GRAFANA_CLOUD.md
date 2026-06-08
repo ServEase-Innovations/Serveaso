@@ -56,50 +56,84 @@ All metrics include default labels: `service=<name>`, `environment=<NODE_ENV>`.
 
 ## Phase 2 — Grafana Cloud setup (DEV)
 
-### 1. Create stack
+Use the **Render Background Worker** collector (recommended). Hosted Grafana Cloud collectors work too, but the repo ships a ready-made Alloy config for Render.
 
-1. Sign up at [grafana.com](https://grafana.com/) → **Grafana Cloud** (free tier is enough for DEV).
-2. Note your **Prometheus remote write URL** and **Grafana instance URL**.
+### Checklist
 
-### 2. Add a collector (Grafana Alloy)
+| Step | Action | Done? |
+|------|--------|-------|
+| 2.1 | Grafana Cloud stack + Prometheus remote write URL | ☐ |
+| 2.2 | API token (`set:alloy-data-write`) | ☐ |
+| 2.3 | Render worker `serveaso-metrics-collector` deployed | ☐ |
+| 2.4 | Explore: `up{job="serveaso-render-dev"}` → 9 × `1` | ☐ |
+| 2.5 | Import **Serveaso — API overview** dashboard | ☐ |
+| 2.6 | GitHub variable `GRAFANA_DASHBOARD_URL` (deploy email link) | ☐ |
 
-**Option A — Grafana Cloud Hosted Collector (simplest)**
-
-1. Grafana Cloud → **Connections** → **Collector**.
-2. Create a collector for your region.
-3. Paste scrape config from [`prometheus.dev-scrape.yml`](./prometheus.dev-scrape.yml) into the Alloy config (under `prometheus.scrape` blocks if using River, or use the YAML equivalent your UI provides).
-
-**Option B — Alloy on a small VM / laptop (DEV only)**
+Run local verification:
 
 ```bash
-# Install Grafana Alloy, then:
-alloy run monitoring/alloy.dev.river
+chmod +x monitoring/scripts/phase2-verify.sh
+./monitoring/scripts/phase2-verify.sh
 ```
 
-See [`alloy.dev.river.example`](./alloy.dev.river.example) for a starter River config.
+### 2.1 — Create stack
 
-### 3. Confirm data
+1. [grafana.com](https://grafana.com/) → **Grafana Cloud** (free tier is enough for DEV).
+2. Note from **Your stack** → **Prometheus** → **Details**:
+   - **Remote write URL** → `GRAFANA_PROMETHEUS_URL`
+   - **Username / Instance ID** → `GRAFANA_PROMETHEUS_USER`
+   - **Grafana instance URL** → e.g. `https://YOURSTACK.grafana.net`
 
-Grafana Cloud → **Explore** → Prometheus:
+### 2.2 — Collector on Render (recommended)
+
+Follow [`render-collector/README.md`](./render-collector/README.md):
+
+1. Grafana Cloud → **Connections** → **Collector** → **Create token** (scope `set:alloy-data-write`, remote config **off**).
+2. Render → **New Background Worker** → repo `Serveaso`, root `monitoring/render-collector`, runtime **Docker**.
+3. Env vars: `GRAFANA_PROMETHEUS_URL`, `GRAFANA_PROMETHEUS_USER`, `GRAFANA_API_KEY`, `SCRAPE_ENV=dev`.
+4. Use **Starter** instance type or higher (free tier sleeps → metric gaps).
+
+Scrape targets live in [`render-collector/config.alloy`](./render-collector/config.alloy) (single job `serveaso-render-dev`, 9 backends).
+
+**Alternative:** Grafana Cloud hosted collector — paste targets from [`prometheus.dev-scrape.yml`](./prometheus.dev-scrape.yml). **Local DEV only:** [`alloy.dev.river.example`](./alloy.dev.river.example).
+
+### 2.3 — Confirm data in Explore
+
+Grafana → **Explore** → Prometheus datasource:
+
+**Scrape health** (expect 9 series at `1`):
 
 ```promql
-up{environment="dev"}
+up{job="serveaso-render-dev"}
 ```
 
-You should see one series per service (9 targets).
+**HTTP traffic** — Render DEV runs `NODE_ENV=production`, so app metrics use `environment="production"` (not `dev`):
 
 ```promql
-sum by (service) (rate(http_requests_total{environment="dev"}[5m]))
+sum by (service) (rate(http_requests_total{environment="production"}[5m]))
 ```
 
-Hit any API (or wait for traffic) — rates should appear.
+Optional: set `METRICS_ENVIRONMENT=dev` on each Render service to label app metrics as `dev` instead (see `METRICS_ENVIRONMENT` in service `prometheus` modules).
 
-### 4. Import dashboard
+### 2.4 — Import dashboard
+
+**Option A — script (fastest)**
+
+```bash
+export GRAFANA_URL="https://YOURSTACK.grafana.net"
+export GRAFANA_API_TOKEN="glc_..."   # Cloud API key or service account token
+chmod +x monitoring/scripts/grafana-import-dashboard.sh
+./monitoring/scripts/grafana-import-dashboard.sh
+```
+
+**Option B — UI**
 
 1. **Dashboards** → **New** → **Import**.
 2. Upload [`dashboards/serveaso-overview.json`](./dashboards/serveaso-overview.json).
-3. Select your Prometheus datasource.
-4. Set variable `environment` = `dev`.
+3. Select your **Prometheus** datasource.
+4. Leave **Metrics environment** = `production` for Render DEV (default).
+
+Copy the dashboard URL into GitHub → **Settings** → **Secrets and variables** → **Actions** → **Variables** → `GRAFANA_DASHBOARD_URL` (used by deploy notification email).
 
 Per-service dashboards (optional): `services/providers/monitoring/grafana/dashboards/`, `services/coupons/monitoring/grafana/dashboards/`.
 
