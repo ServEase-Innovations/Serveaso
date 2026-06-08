@@ -12,7 +12,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 |------|--------|
 | Phase 0 — Blockers | 5 / 6 |
 | Phase 1 — Secure & stable | 6 / 6 |
-| Phase 2 — Quality & observability | 3 / 5 |
+| Phase 2 — Quality & observability | 4 / 5 |
 | Phase 3 — Polish | 0 / 4 |
 | Go / no-go gate | 0 / 6 |
 
@@ -129,10 +129,6 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | coupons | **No** — full DB introspection schema | **Risk** on shared DB; trim to coupon tables only |
 | reviews | Separate DB often | Not core `serveaso` |
 
-### Coupons workaround (remove after 096 stable)
-
-- `services/coupons/src/scripts/patchCouponSchema.js` runs `ALTER TABLE` on boot — contradicts central-migration principle. Remove once `096` is applied everywhere.
-
 ### Pre-launch DB checklist
 
 - [ ] `npm run db:migrate` on **prod** with `PROD_DATABASE_URL`
@@ -220,7 +216,7 @@ Mark `[x]` when done. Work in order within each phase.
 - [x] **Step 9 · OPS-1** — `/health` + `/ready` on payments, providers, coupons, utils
 - [x] **Step 10 · ENV-1** — [ENV_MATRIX.md](./ENV_MATRIX.md): every `REACT_APP_*` and service URL (DEV vs PROD)
 - [x] **Step 11 · S9** — Gate `debugMessage` behind non-production *(providers, coupons)*
-- [ ] **Step 12 · DB-2** — Remove coupons `patchCouponSchema` boot DDL after 096 verified *(coupons, ~2h)*
+- [x] **Step 12 · DB-2** — Remove coupons `patchCouponSchema` boot DDL after 096 verified *(coupons — central `db:migrate` only)*
 
 ### Phase 2 — Quality & observability (week 3–4)
 
@@ -270,4 +266,4 @@ Deploy & migrate                           → .github/workflows/, docs/DEPLOYME
 
 ---
 
-*Last updated: 2026-06-08 — DEV observability complete (Grafana Cloud + alerts). Phase 0 still needs DB-1. See [ENV_MATRIX.md](./ENV_MATRIX.md) and [monitoring/GRAFANA_CLOUD.md](../monitoring/GRAFANA_CLOUD.md).*
+*Last updated: 2026-06-09 — DB-2 done (coupons boot DDL removed). Phase 0 still needs DB-1 (prod). See [ENV_MATRIX.md](./ENV_MATRIX.md) and [monitoring/GRAFANA_CLOUD.md](../monitoring/GRAFANA_CLOUD.md).*

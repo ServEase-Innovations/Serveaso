@@ -12,7 +12,7 @@ One-page runbook. Tick boxes as you go.
 - [ ] **Migrate dev DB** — Actions → **Deploy Backend** → `environment: dev`, `run_migrations: true` (or `npm run db:migrate` with `DEV_DATABASE_URL`)
 - [ ] Confirm `_serveaso_schema_migrations` includes through **`097_maid_cook_promo99_coupons.sql`**
 - [ ] Confirm coupon columns from **`096`** exist (`booking_condition`, `nth_booking`)
-- [ ] **DB-2** — Remove coupons `patchCouponSchema` boot DDL after 096 verified on dev
+- [x] **DB-2** — Remove coupons `patchCouponSchema` boot DDL after 096 verified on dev
 
 ### B. Render services — env & health
 
