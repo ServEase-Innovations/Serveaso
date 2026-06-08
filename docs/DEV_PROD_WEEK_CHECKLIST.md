@@ -53,15 +53,28 @@ Generate once per env: `openssl rand -hex 32`
 
 ### E. DEV smoke test (gate before PROD work)
 
-Run on Netlify DEV + Render DEV:
+**E1 — Automated API smoke** (run after each deploy):
+
+```bash
+npm run test:integration
+# or
+./tests/integration/smoke-gate.sh
+```
+
+- [x] **2026-06-09** — `54 pass`, `0 fail`, `2 skip` (nearby-monthly 500 on DEV; live webhook needs `RAZORPAY_WEBHOOK_SECRET` locally)
+- Covers: all `/health` + `/ready`, `/metrics` 9/9, quote→create engagement, coupons, pricing, reviews, webhook HMAC unit, platform-settings public
+
+**E2 — Manual UI smoke** (Netlify DEV + Render DEV):
+
+UI: **https://servease-innovation.netlify.app**
 
 - [ ] Customer register / login (Auth0)
 - [ ] Browse providers → get quote → create booking
 - [ ] Razorpay **test** payment completes; webhook shows success in Razorpay Dashboard
 - [ ] Provider accepts booking; Socket.IO / notifications update
 - [ ] Provider start → complete (or cancel flow)
-- [ ] Admin: platform-status with `X-Admin-Push-Secret` (not bare browser URL)
-- [ ] Optional: coupon apply, review, ticket raise
+- [ ] Admin: platform-status with `X-Admin-Push-Secret` (Admin dashboard Settings — not bare API URL)
+- [ ] Optional: coupon apply (`MAID99-1ST` / `COOK99-1ST`), review, ticket raise
 
 ### F. Code quality on DEV (do now — protects PROD deploy)
 
@@ -72,7 +85,7 @@ Run on Netlify DEV + Render DEV:
 - [x] **TEST-1** — Integration tests: `npm run test:integration`; CI on push/daily/post-dev-deploy
 - [ ] Deploy notification email (optional): `DEPLOY_NOTIFY_FROM=info@serveaso.com` (domain must match SendGrid auth)
 
-**DEV is done when:** A + B + C + D + E are checked.
+**DEV is done when:** A + B + C + D + **E1 + E2** are checked.
 
 ---
 
