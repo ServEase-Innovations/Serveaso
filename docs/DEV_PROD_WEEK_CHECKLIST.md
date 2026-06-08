@@ -9,9 +9,9 @@ One-page runbook. Tick boxes as you go.
 
 ### A. Database
 
-- [ ] **Migrate dev DB** — Actions → **Deploy Backend** → `environment: dev`, `run_migrations: true` (or `npm run db:migrate` with `DEV_DATABASE_URL`)
-- [ ] Confirm `_serveaso_schema_migrations` includes through **`097_maid_cook_promo99_coupons.sql`**
-- [ ] Confirm coupon columns from **`096`** exist (`booking_condition`, `nth_booking`)
+- [x] **Migrate dev DB** — `18/18` SQL applied (through **098**); Prisma tickets up to date
+- [x] Confirm `_serveaso_schema_migrations` includes through **`097_maid_cook_promo99_coupons.sql`**
+- [x] Confirm coupon columns from **`096`** exist (`booking_condition`, `nth_booking`)
 - [x] **DB-2** — Remove coupons `patchCouponSchema` boot DDL after 096 verified on dev
 
 ### B. Render services — env & health
@@ -61,20 +61,26 @@ npm run test:integration
 ./tests/integration/smoke-gate.sh
 ```
 
-- [x] **2026-06-09** — `54 pass`, `0 fail`, `2 skip` (nearby-monthly 500 on DEV; live webhook needs `RAZORPAY_WEBHOOK_SECRET` locally)
+- [x] **2026-06-09** — deploy email: `57 pass`, `0 fail`, `1 skip`; metrics **9/9**; all services **live**
 - Covers: all `/health` + `/ready`, `/metrics` 9/9, quote→create engagement, coupons, pricing, reviews, webhook HMAC unit, platform-settings public
 
-**E2 — Manual UI smoke** (Netlify DEV + Render DEV):
+**E2 — Manual UI smoke** (Netlify DEV + Render DEV) — **🔄 IN PROGRESS**
 
 UI: **https://servease-innovation.netlify.app**
 
-- [ ] Customer register / login (Auth0)
-- [ ] Browse providers → get quote → create booking
-- [ ] Razorpay **test** payment completes; webhook shows success in Razorpay Dashboard
-- [ ] Provider accepts booking; Socket.IO / notifications update
-- [ ] Provider start → complete (or cancel flow)
-- [ ] Admin: platform-status with `X-Admin-Push-Secret` (Admin dashboard Settings — not bare API URL)
-- [ ] Optional: coupon apply (`MAID99-1ST` / `COOK99-1ST`), review, ticket raise
+Work in order; tick each step as you complete it:
+
+| Step | Flow | Done |
+|------|------|------|
+| 1 | Customer register / login (Auth0) | [ ] |
+| 2 | Browse providers → get quote → create booking | [ ] |
+| 3 | Razorpay **test** payment; webhook **200** in [Razorpay Dashboard](https://dashboard.razorpay.com) | [ ] |
+| 4 | Provider login → accept booking; notifications / Socket.IO update | [ ] |
+| 5 | Provider start → OTP → complete (or cancel flow) | [ ] |
+| 6 | Admin → Settings → platform-status (not bare API URL) | [ ] |
+| 7 | Optional: coupon `MAID99-1ST` / `COOK99-1ST`, review, ticket | [ ] |
+
+**If something fails:** note step number, browser error, and Network tab status code — fix before prod week.
 
 ### F. Code quality on DEV (do now — protects PROD deploy)
 
@@ -85,7 +91,9 @@ UI: **https://servease-innovation.netlify.app**
 - [x] **TEST-1** — Integration tests: `npm run test:integration`; CI on push/daily/post-dev-deploy
 - [ ] Deploy notification email (optional): `DEPLOY_NOTIFY_FROM=info@serveaso.com` (domain must match SendGrid auth)
 
-**DEV is done when:** A + B + C + D + **E1 + E2** are checked.
+**DEV is done when:** A + B + C + D + **E1** ✅ + **E2** (all steps 1–6) are checked.
+
+**Current focus:** E2 manual UI on Netlify — prod week blocked until steps 1–6 pass.
 
 ---
 
@@ -173,4 +181,4 @@ npm run db:install && npm run db:migrate
 
 ---
 
-*Last updated: 2026-06-07 — adjust Render hostnames in ENV_MATRIX when services move.*
+*Last updated: 2026-06-09 — E2 manual UI smoke in progress; E1 + DB + deploy pipeline green.*
