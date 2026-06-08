@@ -119,16 +119,16 @@
   "templating": {
     "list": [
       {
-        "current": { "text": "production", "value": "production" },
-        "description": "NODE_ENV on Render DEV is production; set METRICS_ENVIRONMENT=dev on services to use dev here",
+        "current": { "text": "dev", "value": "dev" },
+        "description": "Render DEV uses METRICS_ENVIRONMENT=dev; prod uses METRICS_ENVIRONMENT=prod or NODE_ENV",
         "label": "Metrics environment",
         "name": "metrics_environment",
         "options": [
-          { "text": "production", "value": "production", "selected": true },
-          { "text": "dev", "value": "dev", "selected": false },
+          { "text": "dev", "value": "dev", "selected": true },
+          { "text": "production", "value": "production", "selected": false },
           { "text": "development", "value": "development", "selected": false }
         ],
-        "query": "production,dev,development",
+        "query": "dev,production,development",
         "type": "custom"
       },
       {

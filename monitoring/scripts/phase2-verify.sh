@@ -75,11 +75,11 @@ echo ""
 echo "Scrape health (expect 9 series at 1):"
 echo '  up{job="serveaso-render-dev"}'
 echo ""
-echo "Request rate (Render DEV uses NODE_ENV=production on app metrics):"
-echo '  sum by (service) (rate(http_requests_total{environment="production"}[5m]))'
+echo "Request rate (METRICS_ENVIRONMENT=dev on Render):"
+echo '  sum by (service) (rate(http_requests_total{environment="dev"}[5m]))'
 echo ""
 echo "5xx rate:"
-echo '  sum by (service) (rate(http_requests_total{environment="production",status_code=~"5.."}[5m]))'
+echo '  sum by (service) (rate(http_requests_total{environment="dev",status_code=~"5.."}[5m]))'
 echo ""
 echo "Import dashboard:"
 echo "  GRAFANA_URL=https://YOUR_STACK.grafana.net \\"

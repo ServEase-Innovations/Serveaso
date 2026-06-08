@@ -8,7 +8,8 @@ Roll out on **DEV (Render)** first. When `/metrics` passes integration tests on 
 |-------|--------|-------|
 | **Phase 1** — Verify `/metrics` | **Done** | 9/9 backends expose `/metrics`; CI + `phase2-verify.sh` pass |
 | **Phase 2** — Grafana Cloud + collector | **Done** | Stack `maityronit18-prom`, Render worker `serveaso-metrics-collector`, `up{job="serveaso-render-dev"}` = 9 × `1` |
-| **Phase 2** — Overview dashboard | **Done** | `Serveaso — API overview` imported; metrics env = `production` on Render DEV |
+| **Phase 2** — Overview dashboard | **Done** | `Serveaso — API overview` imported; **Metrics environment** = `dev` |
+| **Phase 2** — `METRICS_ENVIRONMENT=dev` on Render | **Done** | All 9 DEV backends; app metrics label `environment="dev"` |
 | **Phase 2** — Deploy email observability | **Done** | Post-deploy smoke in `.github/workflows/observability-smoke.yml` + deploy notification |
 | **Phase 2** — `GRAFANA_DASHBOARD_URL` | **Done** | GitHub Actions variable — dashboard link in deploy email |
 | **Phase 3** — DEV alert rules | **Done** | Folder `Serveaso DEV`, evaluation group `serveaso-dev`, 4 rules + email contact point |
@@ -46,7 +47,7 @@ Every microservice implements:
 | **providers** | `provider_actions_total` (`action`, `result`) |
 | **coupons** | `coupon_actions_total` (`action`, `result`) |
 
-All metrics include default labels: `service=<name>`, `environment=<NODE_ENV>`.
+App metrics labels: `service=<name>`, `environment=<METRICS_ENVIRONMENT || NODE_ENV>`. Render DEV sets **`METRICS_ENVIRONMENT=dev`** (while `NODE_ENV` stays `production`).
 
 ---
 
@@ -82,6 +83,7 @@ Use the **Render Background Worker** collector (recommended). Hosted Grafana Clo
 | 2.4 | Explore: `up{job="serveaso-render-dev"}` → 9 × `1` | ✅ |
 | 2.5 | Import **Serveaso — API overview** dashboard | ✅ |
 | 2.6 | GitHub variable `GRAFANA_DASHBOARD_URL` (deploy email link) | ✅ |
+| 2.7 | `METRICS_ENVIRONMENT=dev` on all Render DEV backends | ✅ |
 
 Run local verification:
 
@@ -121,13 +123,11 @@ Grafana → **Explore** → Prometheus datasource:
 up{job="serveaso-render-dev"}
 ```
 
-**HTTP traffic** — Render DEV runs `NODE_ENV=production`, so app metrics use `environment="production"` (not `dev`):
+**HTTP traffic** — app metrics use `environment="dev"` (`METRICS_ENVIRONMENT=dev` on Render):
 
 ```promql
-sum by (service) (rate(http_requests_total{environment="production"}[5m]))
+sum by (service) (rate(http_requests_total{environment="dev"}[5m]))
 ```
-
-Optional: set `METRICS_ENVIRONMENT=dev` on each Render service to label app metrics as `dev` instead (see `METRICS_ENVIRONMENT` in service `prometheus` modules).
 
 ### 2.4 — Import dashboard
 
@@ -145,7 +145,7 @@ chmod +x monitoring/scripts/grafana-import-dashboard.sh
 1. **Dashboards** → **New** → **Import**.
 2. Upload [`dashboards/serveaso-overview.json`](./dashboards/serveaso-overview.json).
 3. Select your **Prometheus** datasource.
-4. Leave **Metrics environment** = `production` for Render DEV (default).
+4. Set **Metrics environment** = `dev` (default in repo dashboard JSON).
 
 Copy the dashboard URL into GitHub → **Settings** → **Secrets and variables** → **Actions** → **Variables** → `GRAFANA_DASHBOARD_URL` (used by deploy notification email).
 
@@ -161,8 +161,8 @@ Configured in Grafana Cloud → **Alerting** → folder **`Serveaso DEV`**, eval
 |-----------|--------|-----------|---------|----------|---------|
 | **DEV — scrape target down** | `up{job="serveaso-render-dev"}` | below **1** | 5m | `critical` | Alerting |
 | **DEV — metrics collector unhealthy** | `count(up{job="serveaso-render-dev"} == 1)` | below **9** | 5m | `critical` | Alerting |
-| **DEV — high 5xx rate** | `sum by (service) (rate(http_requests_total{environment="production",status_code=~"5.."}[5m]))` | above **0.05** | 10m | `warning` | **OK** |
-| **DEV — high p95 latency** | `histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_ms_bucket{environment="production"}[5m])))` | above **2000** (ms) | 10m | `warning` | **OK** |
+| **DEV — high 5xx rate** | `sum by (service) (rate(http_requests_total{environment="dev",status_code=~"5.."}[5m]))` | above **0.05** | 10m | `warning` | **OK** |
+| **DEV — high p95 latency** | `histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_ms_bucket{environment="dev"}[5m])))` | above **2000** (ms) | 10m | `warning` | **OK** |
 
 Labels on all rules: `environment=dev`, plus `severity` as above.
 
@@ -175,6 +175,8 @@ Labels on all rules: `environment=dev`, plus `severity` as above.
 Rule 2 (collector count) has no `service` label — use `$values` in summary, not `$labels.service`.
 
 **No-data emails:** Rules 3 & 4 must use **If no data → OK**. Otherwise Grafana sends `DatasourceNoData` emails with `[no value]` for `{{ $labels.service }}`.
+
+**After `METRICS_ENVIRONMENT=dev`:** Update rules 3 & 4 in Grafana UI to filter `environment="dev"` (not `production`) if they were created with the old PromQL.
 
 **Contact point:** email (e.g. `serveaso-dev-email`). **Silence** rules during planned deploys (~30m).
 

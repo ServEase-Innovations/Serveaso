@@ -59,6 +59,7 @@ Generate: `openssl rand -hex 32`
 | Variable | DEV | PROD | Services |
 |----------|-----|------|----------|
 | `NODE_ENV` | `production` | `production` | all on Render/EC2 |
+| `METRICS_ENVIRONMENT` | `dev` | `prod` | all 9 backends with `/metrics` — Prometheus `environment` label (overrides `NODE_ENV` for Grafana) |
 | `CORS_ORIGINS` | `http://localhost:3000,https://servease-innovation.netlify.app` | prod web domain only | payments, providers, utils, coupons, preferences, reviews, chat, imageUploader |
 | `SOCKET_IO_ORIGINS` | optional; defaults to `CORS_ORIGINS` | optional | payments, chat |
 
