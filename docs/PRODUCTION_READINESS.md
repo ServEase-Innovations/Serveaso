@@ -12,7 +12,7 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 |------|--------|
 | Phase 0 — Blockers | 5 / 6 |
 | Phase 1 — Secure & stable | 6 / 6 |
-| Phase 2 — Quality & observability | 0 / 5 |
+| Phase 2 — Quality & observability | 3 / 5 |
 | Phase 3 — Polish | 0 / 4 |
 | Go / no-go gate | 0 / 6 |
 
@@ -172,8 +172,9 @@ Living checklist for going live. Work through items **in order** (P0 → P3). Ma
 | Structured logging | payments, providers, coupons, utils |
 | Per-service `/health` + `/ready` | All 9 backends (tickets `/ready` added with metrics rollout) |
 | Platform status | utils `GET /api/platform-status` (admin only) |
-| Grafana Cloud (DEV) | Scrape config + overview dashboard in `monitoring/` — see `monitoring/GRAFANA_CLOUD.md` |
-| Prod alerting | Configure in Grafana Cloud after DEV validation (see `monitoring/GRAFANA_CLOUD.md` § Alerts) |
+| Grafana Cloud (DEV) | **Done** — Render collector, 9/9 scrape targets, overview dashboard, 4 alert rules — `monitoring/GRAFANA_CLOUD.md` |
+| Deploy observability smoke | **Done** — `observability-smoke.yml` + summary in deploy notification email |
+| Prod metrics + alerting | **Not started** — Phase 4 in `monitoring/GRAFANA_CLOUD.md` (EC2 scrape + `Serveaso PROD` folder) |
 
 ### Pre-launch ops checklist
 
@@ -225,7 +226,8 @@ Mark `[x]` when done. Work in order within each phase.
 
 - [x] **Step 13 · CI-1** — GitHub Action on PR: lint + typecheck (reviews) + secret scan *(`.github/workflows/pr-checks.yml`)*
 - [x] **Step 14 · TEST-1** — Integration tests: health, webhook HMAC, create engagement (`tests/integration/`, `npm run test:integration`)
-- [ ] **Step 15 · OPS-2** — Prod metrics scrape + alert rules (5xx, webhook failures, DB down) *(DevOps, ~2d)*
+- [x] **Step 15a · OPS-2** — DEV Grafana Cloud: collector, dashboard, alert rules (scrape down, collector health, 5xx, p95) *(see `monitoring/GRAFANA_CLOUD.md`)*
+- [ ] **Step 15b · OPS-2** — Prod metrics scrape + alert rules on EC2 *(DevOps, ~2d)*
 - [ ] **Step 16 · DB-3** — Trim coupons Prisma schema to coupon tables only *(coupons, ~1d)*
 - [ ] **Step 17 · SEC-1** — Rate limiting + `helmet` on public Express apps *(backend, ~1d)*
 
@@ -268,4 +270,4 @@ Deploy & migrate                           → .github/workflows/, docs/DEPLOYME
 
 ---
 
-*Last updated: 2026-06-07 — S9 + ENV-1 done. Phase 0 still needs DB-1. See [ENV_MATRIX.md](./ENV_MATRIX.md) for Render/EC2 configuration.*
+*Last updated: 2026-06-08 — DEV observability complete (Grafana Cloud + alerts). Phase 0 still needs DB-1. See [ENV_MATRIX.md](./ENV_MATRIX.md) and [monitoring/GRAFANA_CLOUD.md](../monitoring/GRAFANA_CLOUD.md).*

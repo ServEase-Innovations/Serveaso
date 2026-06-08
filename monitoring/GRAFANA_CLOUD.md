@@ -2,6 +2,20 @@
 
 Roll out on **DEV (Render)** first. When `/metrics` passes integration tests on all services, copy scrape targets to **prod** and import the same dashboards with `environment=prod`.
 
+## Status (DEV) — updated 2026-06-08
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| **Phase 1** — Verify `/metrics` | **Done** | 9/9 backends expose `/metrics`; CI + `phase2-verify.sh` pass |
+| **Phase 2** — Grafana Cloud + collector | **Done** | Stack `maityronit18-prom`, Render worker `serveaso-metrics-collector`, `up{job="serveaso-render-dev"}` = 9 × `1` |
+| **Phase 2** — Overview dashboard | **Done** | `Serveaso — API overview` imported; metrics env = `production` on Render DEV |
+| **Phase 2** — Deploy email observability | **Done** | Post-deploy smoke in `.github/workflows/observability-smoke.yml` + deploy notification |
+| **Phase 2** — `GRAFANA_DASHBOARD_URL` | Optional | GitHub Actions variable for dashboard link in deploy email |
+| **Phase 3** — DEV alert rules | **Done** | Folder `Serveaso DEV`, evaluation group `serveaso-dev`, 4 rules + email contact point |
+| **Phase 4** — Prod | **Not started** | EC2 scrape targets + `Serveaso PROD` folder |
+
+**CI / deploy:** `GH_PAT` required on Serveaso repo to mirror-push `services/imageUploader` → `ServEase-Innovations/imageUploader` before Render deploy.
+
 ## What each backend exposes
 
 Every microservice implements:
@@ -36,9 +50,9 @@ All metrics include default labels: `service=<name>`, `environment=<NODE_ENV>`.
 
 ---
 
-## Phase 1 — Verify DEV (before Grafana Cloud)
+## Phase 1 — Verify DEV (before Grafana Cloud) ✅
 
-1. Deploy all backend services to Render (this PR adds `/metrics` to reviews, tickets, chat, image-uploader).
+1. ~~Deploy all backend services to Render~~ (`/metrics` on all 9 backends including reviews, tickets, chat, image-uploader).
 2. Run integration tests:
    ```bash
    npm run test:integration
@@ -54,7 +68,7 @@ All metrics include default labels: `service=<name>`, `environment=<NODE_ENV>`.
 
 ---
 
-## Phase 2 — Grafana Cloud setup (DEV)
+## Phase 2 — Grafana Cloud setup (DEV) ✅
 
 Use the **Render Background Worker** collector (recommended). Hosted Grafana Cloud collectors work too, but the repo ships a ready-made Alloy config for Render.
 
@@ -62,12 +76,12 @@ Use the **Render Background Worker** collector (recommended). Hosted Grafana Clo
 
 | Step | Action | Done? |
 |------|--------|-------|
-| 2.1 | Grafana Cloud stack + Prometheus remote write URL | ☐ |
-| 2.2 | API token (`set:alloy-data-write`) | ☐ |
-| 2.3 | Render worker `serveaso-metrics-collector` deployed | ☐ |
-| 2.4 | Explore: `up{job="serveaso-render-dev"}` → 9 × `1` | ☐ |
-| 2.5 | Import **Serveaso — API overview** dashboard | ☐ |
-| 2.6 | GitHub variable `GRAFANA_DASHBOARD_URL` (deploy email link) | ☐ |
+| 2.1 | Grafana Cloud stack + Prometheus remote write URL | ✅ |
+| 2.2 | API token (`set:alloy-data-write`) | ✅ |
+| 2.3 | Render worker `serveaso-metrics-collector` deployed | ✅ |
+| 2.4 | Explore: `up{job="serveaso-render-dev"}` → 9 × `1` | ✅ |
+| 2.5 | Import **Serveaso — API overview** dashboard | ✅ |
+| 2.6 | GitHub variable `GRAFANA_DASHBOARD_URL` (deploy email link) | ☐ optional |
 
 Run local verification:
 
@@ -139,18 +153,44 @@ Per-service dashboards (optional): `services/providers/monitoring/grafana/dashbo
 
 ---
 
-## Phase 3 — Alerts (recommended before prod)
+## Phase 3 — Alerts (DEV) ✅
 
-Create alert rules in Grafana Cloud (or Prometheus):
+Configured in Grafana Cloud → **Alerting** → folder **`Serveaso DEV`**, evaluation group **`serveaso-dev`** (evaluate every **1m**).
 
-| Alert | PromQL (example) | Severity |
-|-------|------------------|----------|
-| Service down | `up{environment="dev"} == 0` | critical |
-| High 5xx rate | `sum by (service) (rate(http_requests_total{status_code=~"5..",environment="dev"}[5m])) > 0.1` | warning |
-| High p95 latency | `histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_ms_bucket{environment="dev"}[5m]))) > 2000` | warning |
-| Not ready (synthetic) | Blackbox or integration test failure | warning |
+| Rule name | PromQL | Condition | Pending | Severity | No data |
+|-----------|--------|-----------|---------|----------|---------|
+| **DEV — scrape target down** | `up{job="serveaso-render-dev"}` | below **1** | 5m | `critical` | Alerting |
+| **DEV — metrics collector unhealthy** | `count(up{job="serveaso-render-dev"} == 1)` | below **9** | 5m | `critical` | Alerting |
+| **DEV — high 5xx rate** | `sum by (service) (rate(http_requests_total{environment="production",status_code=~"5.."}[5m]))` | above **0.05** | 10m | `warning` | **OK** |
+| **DEV — high p95 latency** | `histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_ms_bucket{environment="production"}[5m])))` | above **2000** (ms) | 10m | `warning` | **OK** |
+
+Labels on all rules: `environment=dev`, plus `severity` as above.
+
+**Notification templates** — use fallbacks so emails are not empty when a label is missing:
+
+```text
+{{ or $labels.service $labels.instance "unknown target" }}
+```
+
+Rule 2 (collector count) has no `service` label — use `$values` in summary, not `$labels.service`.
+
+**No-data emails:** Rules 3 & 4 must use **If no data → OK**. Otherwise Grafana sends `DatasourceNoData` emails with `[no value]` for `{{ $labels.service }}`.
+
+**Contact point:** email (e.g. `serveaso-dev-email`). **Silence** rules during planned deploys (~30m).
+
+**Not in Grafana (handled elsewhere):**
+
+| Concern | Where |
+|---------|--------|
+| Integration test failures | Deploy email + GitHub Actions |
+| `/metrics` missing after deploy | `observability-smoke.yml` in Deploy Backend workflow |
+| Synthetic `/ready` checks | Integration tests (`tests/integration/`) |
 
 **Logs:** Render dashboard logs remain the source for stack traces until Loki is added. Optional next step: Grafana Cloud Logs + forward Render log stream or structured JSON from apps.
+
+### Prod alerts (Phase 4)
+
+Duplicate rules into folder **`Serveaso PROD`** with prod scrape job / hostnames and stricter thresholds before customer traffic.
 
 ---
 
@@ -173,6 +213,12 @@ Create alert rules in Grafana Cloud (or Prometheus):
 |------|---------|
 | `monitoring/prometheus.dev-scrape.yml` | DEV scrape targets (Render) |
 | `monitoring/prometheus.prod-scrape.yml.example` | Prod template |
+| `monitoring/render-collector/config.alloy` | **Active** Alloy config (Render worker) |
+| `monitoring/render-collector/README.md` | Collector + dashboard setup on Render |
 | `monitoring/dashboards/serveaso-overview.json` | Cross-service Grafana dashboard |
-| `monitoring/alloy.dev.river.example` | Alloy collector example |
+| `monitoring/scripts/phase2-verify.sh` | Local 9/9 `/metrics` check + Explore queries |
+| `monitoring/scripts/grafana-import-dashboard.sh` | Import overview dashboard via API |
+| `monitoring/alloy.dev.river.example` | Alloy collector example (local DEV) |
+| `.github/workflows/observability-smoke.yml` | Post-deploy `/metrics` probe (callable) |
+| `.github/scripts/observability-smoke.sh` | Probe script + JSON report for deploy email |
 | `tests/integration/metrics.test.mjs` | CI smoke for `/metrics` on all 9 services |
