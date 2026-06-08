@@ -422,8 +422,18 @@ jobs:
     uses: ./.github/workflows/integration-tests.yml
     secrets: inherit
 
+  smoke-observability:
+    name: DEV observability smoke
+    needs: [deploy]
+    if: |
+      inputs.run_smoke_tests == true &&
+      inputs.environment == 'dev' &&
+      needs.deploy.result == 'success'
+    uses: ./.github/workflows/observability-smoke.yml
+    secrets: inherit
+
   notify-deployment:
-    needs: [resolve-matrix, migrate-database, deploy, smoke-integration]
+    needs: [resolve-matrix, migrate-database, deploy, smoke-integration, smoke-observability]
     if: always() && needs.resolve-matrix.result == 'success' && inputs.notify_on_deploy == true
     runs-on: ubuntu-latest
     steps:
@@ -435,6 +445,14 @@ jobs:
           pattern: deploy-report-*-${{ github.run_number }}
           merge-multiple: true
           path: deploy-reports
+
+      - name: Download observability report
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: observability-report-${{ github.run_number }}
+          merge-multiple: true
+          path: observability-reports
 
       - name: Send deployment email
         continue-on-error: true
@@ -453,6 +471,13 @@ jobs:
           INTEGRATION_PASS: ${{ needs.smoke-integration.outputs.integration_pass }}
           INTEGRATION_FAIL: ${{ needs.smoke-integration.outputs.integration_fail }}
           INTEGRATION_SKIP: ${{ needs.smoke-integration.outputs.integration_skip }}
+          OBSERVABILITY_JOB_RESULT: ${{ needs.smoke-observability.result }}
+          OBSERVABILITY_STATUS: ${{ needs.smoke-observability.outputs.observability_status }}
+          OBSERVABILITY_UP: ${{ needs.smoke-observability.outputs.observability_up }}
+          OBSERVABILITY_TOTAL: ${{ needs.smoke-observability.outputs.observability_total }}
+          OBSERVABILITY_DOWN: ${{ needs.smoke-observability.outputs.observability_down }}
+          GRAFANA_DASHBOARD_URL: ${{ vars.GRAFANA_DASHBOARD_URL }}
+          OBSERVABILITY_REPORTS_DIR: observability-reports
         run: |
           chmod +x .github/scripts/send-deploy-notification-email.sh
           .github/scripts/send-deploy-notification-email.sh deploy-reports

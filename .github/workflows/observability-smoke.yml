@@ -1,0 +1,70 @@
+# Post-deploy Prometheus /metrics probe against DEV Render backends.
+
+name: Observability Smoke (DEV)
+
+on:
+  workflow_dispatch:
+
+  workflow_call:
+    outputs:
+      observability_status:
+        description: success or failure
+        value: ${{ jobs.observability.outputs.observability_status }}
+      observability_up:
+        description: Scrape targets responding with /metrics
+        value: ${{ jobs.observability.outputs.observability_up }}
+      observability_total:
+        description: Total scrape targets probed
+        value: ${{ jobs.observability.outputs.observability_total }}
+      observability_down:
+        description: Targets not returning valid /metrics
+        value: ${{ jobs.observability.outputs.observability_down }}
+
+permissions:
+  contents: read
+
+jobs:
+  observability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      observability_status: ${{ steps.smoke.outputs.status }}
+      observability_up: ${{ steps.smoke.outputs.up }}
+      observability_total: ${{ steps.smoke.outputs.total }}
+      observability_down: ${{ steps.smoke.outputs.down }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe /metrics on all DEV services
+        id: smoke
+        continue-on-error: true
+        env:
+          GRAFANA_DASHBOARD_URL: ${{ vars.GRAFANA_DASHBOARD_URL }}
+        run: |
+          chmod +x .github/scripts/observability-smoke.sh
+          set +e
+          .github/scripts/observability-smoke.sh observability-report.json
+          rc=$?
+          set -e
+          status="$(jq -r '.status' observability-report.json)"
+          up="$(jq -r '.up' observability-report.json)"
+          total="$(jq -r '.total' observability-report.json)"
+          down="$(jq -r '.down' observability-report.json)"
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          echo "up=${up}" >> "$GITHUB_OUTPUT"
+          echo "total=${total}" >> "$GITHUB_OUTPUT"
+          echo "down=${down}" >> "$GITHUB_OUTPUT"
+          echo "### Observability smoke (DEV)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Metrics targets up: **${up}/${total}**" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${down}" -gt 0 ]]; then
+            echo "- Down: $(jq -r '.down_services | join(", ")' observability-report.json)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "${rc}"
+
+      - name: Upload observability report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: observability-report-${{ github.run_number }}
+          path: observability-report.json
+          if-no-files-found: warn

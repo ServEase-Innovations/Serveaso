@@ -18,6 +18,13 @@ INTEGRATION_STATUS="${INTEGRATION_STATUS:-}"
 INTEGRATION_PASS="${INTEGRATION_PASS:-0}"
 INTEGRATION_FAIL="${INTEGRATION_FAIL:-0}"
 INTEGRATION_SKIP="${INTEGRATION_SKIP:-0}"
+OBSERVABILITY_REPORTS_DIR="${OBSERVABILITY_REPORTS_DIR:-./observability-reports}"
+OBSERVABILITY_JOB_RESULT="${OBSERVABILITY_JOB_RESULT:-skipped}"
+OBSERVABILITY_STATUS="${OBSERVABILITY_STATUS:-}"
+OBSERVABILITY_UP="${OBSERVABILITY_UP:-0}"
+OBSERVABILITY_TOTAL="${OBSERVABILITY_TOTAL:-0}"
+OBSERVABILITY_DOWN="${OBSERVABILITY_DOWN:-0}"
+GRAFANA_DASHBOARD_URL="${GRAFANA_DASHBOARD_URL:-}"
 
 if [[ -z "${EMAILS}" ]]; then
   echo "::notice::DEPLOY_NOTIFY_EMAILS not set — skipping deployment email."
@@ -62,6 +69,21 @@ jq -s '[.[] | if type == "array" then .[] else . end | select(type == "object")]
 SERVICE_COUNT="$(jq 'length' "${MERGED}")"
 echo "Merged ${SERVICE_COUNT} service report(s) for email."
 
+OBS_REPORT_FILE=""
+if [[ -f "${OBSERVABILITY_REPORTS_DIR}/observability-report.json" ]]; then
+  OBS_REPORT_FILE="${OBSERVABILITY_REPORTS_DIR}/observability-report.json"
+elif [[ -f "observability-report.json" ]]; then
+  OBS_REPORT_FILE="observability-report.json"
+fi
+
+OBS_JQ_ARGS=()
+if [[ -n "${OBS_REPORT_FILE}" ]] && jq -e . "${OBS_REPORT_FILE}" >/dev/null 2>&1; then
+  OBS_JQ_ARGS+=(--slurpfile obsReport "${OBS_REPORT_FILE}")
+  echo "Loaded observability report: ${OBS_REPORT_FILE}"
+else
+  OBS_JQ_ARGS+=(--argjson obsReport '[{}]')
+fi
+
 PAYLOAD="$(jq -n \
   --arg from "${FROM}" \
   --arg emails "${EMAILS}" \
@@ -77,6 +99,13 @@ PAYLOAD="$(jq -n \
   --arg integrationPass "${INTEGRATION_PASS}" \
   --arg integrationFail "${INTEGRATION_FAIL}" \
   --arg integrationSkip "${INTEGRATION_SKIP}" \
+  --arg observabilityJobResult "${OBSERVABILITY_JOB_RESULT}" \
+  --arg observabilityStatus "${OBSERVABILITY_STATUS}" \
+  --arg observabilityUp "${OBSERVABILITY_UP}" \
+  --arg observabilityTotal "${OBSERVABILITY_TOTAL}" \
+  --arg observabilityDown "${OBSERVABILITY_DOWN}" \
+  --arg grafanaDashboardUrl "${GRAFANA_DASHBOARD_URL}" \
+  "${OBS_JQ_ARGS[@]}" \
   --slurpfile reports "${MERGED}" \
   '
   def short_sha:
@@ -163,21 +192,46 @@ PAYLOAD="$(jq -n \
   elif ($environment | ascii_downcase) != "dev" then "Integration: not run (prod deploy)"
   elif $runSmokeTests != "true" then "Integration: disabled for this run"
   else "Integration: skipped" end) as $integrationSummary |
-  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") then
+  (if ($environment | ascii_downcase) == "dev" and $runSmokeTests == "true" and $observabilityJobResult != "skipped" then true else false end) as $observabilityRan |
+  (($obsReport[0] // {}) | if type == "object" then . else {} end) as $obsData |
+  (if ($obsData.up // "") != "" then ($obsData.up | tostring) else $observabilityUp end) as $obsUpStr |
+  (if ($obsData.total // "") != "" then ($obsData.total | tostring) else $observabilityTotal end) as $obsTotalStr |
+  (if ($obsData.down // "") != "" then ($obsData.down | tostring) else $observabilityDown end) as $obsDownStr |
+  ($obsUpStr | if . == "" then 0 else tonumber end) as $obsUp |
+  ($obsTotalStr | if . == "" then 0 else tonumber end) as $obsTotal |
+  ($obsDownStr | if . == "" then 0 else tonumber end) as $obsDown |
+  (if $observabilityRan then
+    if (($obsDown > 0) or $observabilityStatus == "failure" or $observabilityJobResult == "failure") then "failure"
+    elif $observabilityJobResult == "success" or $observabilityStatus == "success" then "success"
+    else $observabilityJobResult end
+  else "skipped" end) as $observabilityOutcome |
+  (if $observabilityRan and $observabilityOutcome == "success" then
+    "Metrics: \($obsUp)/\($obsTotal) targets up"
+  elif $observabilityRan and $observabilityOutcome == "failure" then
+    "Metrics: \($obsDown) down (\($obsUp)/\($obsTotal) up)"
+  elif ($environment | ascii_downcase) != "dev" then "Metrics: not run (prod deploy)"
+  elif $runSmokeTests != "true" then "Metrics: disabled for this run"
+  else "Metrics: skipped" end) as $observabilitySummary |
+  (($obsData.down_services // []) | if type == "array" then join(", ") else "" end) as $obsDownServices |
+  (if ($obsData.grafana_dashboard_url // "") != "" then $obsData.grafana_dashboard_url elif $grafanaDashboardUrl != "" then $grafanaDashboardUrl else "" end) as $grafanaUrl |
+  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") and ($observabilityOutcome == "success" or $observabilityOutcome == "skipped") then
     "[OK] Serveaso deploy \($environment) - \($buildVersion) (\($ok)/\($total) services)"
   elif $integrationOutcome == "failure" then
     "[!] Serveaso deploy \($environment) - \($buildVersion) — integration tests failed"
+  elif $observabilityOutcome == "failure" then
+    "[!] Serveaso deploy \($environment) - \($buildVersion) — metrics targets down"
   else
     "[!] Serveaso deploy \($environment) - \($buildVersion) (\($ok) ok, \($failed) failed)"
   end) as $subject |
-  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") then "All systems deployed"
+  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") and ($observabilityOutcome == "success" or $observabilityOutcome == "skipped") then "All systems deployed"
    elif $integrationOutcome == "failure" then "Deploy OK — integration smoke failed"
+   elif $observabilityOutcome == "failure" then "Deploy OK — observability smoke failed"
    else "Review required" end) as $headline |
-  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") then "#10b981"
-   elif $integrationOutcome == "failure" then "#ef4444"
+  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") and ($observabilityOutcome == "success" or $observabilityOutcome == "skipped") then "#10b981"
+   elif ($integrationOutcome == "failure" or $observabilityOutcome == "failure") then "#ef4444"
    else "#f59e0b" end) as $accent |
-  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") then "#ecfdf5"
-   elif $integrationOutcome == "failure" then "#fef2f2"
+  (if $workflowStatus == "success" and $failed == 0 and ($integrationOutcome == "success" or $integrationOutcome == "skipped") and ($observabilityOutcome == "success" or $observabilityOutcome == "skipped") then "#ecfdf5"
+   elif ($integrationOutcome == "failure" or $observabilityOutcome == "failure") then "#fef2f2"
    else "#fffbeb" end) as $accentBg |
   ($rows | map(service_bar) | join("")) as $barRows |
   ($rows | map(
@@ -235,7 +289,8 @@ PAYLOAD="$(jq -n \
         + "<td style=\"padding-right:16px;\"><strong>Build</strong><br><code style=\"font-size:11px;\">\($buildVersion)</code></td>"
         + "<td style=\"padding-right:16px;\"><strong>Workflow</strong><br>" + meta_badge($workflowStatus) + "</td>"
         + "<td style=\"padding-right:16px;\"><strong>Migrations</strong><br>" + meta_badge($migrateStatus) + "</td>"
-        + "<td><strong>Integration</strong><br>" + meta_badge($integrationOutcome) + "</td>"
+        + "<td style=\"padding-right:16px;\"><strong>Integration</strong><br>" + meta_badge($integrationOutcome) + "</td>"
+        + "<td><strong>Metrics</strong><br>" + meta_badge($observabilityOutcome) + "</td>"
         + "</tr></table>"
         + "</td></tr></table></td></tr>"
 
@@ -253,6 +308,29 @@ PAYLOAD="$(jq -n \
           "<tr><td style=\"padding:0 32px 24px;\">"
           + "<div style=\"font-size:13px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;\">"
           + "<strong>Integration tests:</strong> \($integrationSummary)"
+          + "</div></td></tr>"
+        end)
+
+        + (if $observabilityRan then
+          "<tr><td style=\"padding:0 32px 24px;\">"
+          + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;\"><tr><td style=\"padding:18px 20px;\">"
+          + "<div style=\"font-size:15px;font-weight:700;color:#1e293b;margin-bottom:8px;\">Observability (Prometheus /metrics)</div>"
+          + "<div style=\"font-size:13px;color:#475569;margin-bottom:12px;\">\($observabilitySummary)"
+          + (if $obsDownServices != "" then " — down: <code>\($obsDownServices)</code>" else "" end)
+          + "</div>"
+          + "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:13px;\"><tr>"
+          + "<td style=\"padding-right:20px;\"><strong>Up</strong><br><span style=\"font-size:20px;font-weight:700;color:#059669;\">\($obsUp)</span></td>"
+          + "<td style=\"padding-right:20px;\"><strong>Down</strong><br><span style=\"font-size:20px;font-weight:700;color:#dc2626;\">\($obsDown)</span></td>"
+          + "<td><strong>Total</strong><br><span style=\"font-size:20px;font-weight:700;color:#4f46e5;\">\($obsTotal)</span></td>"
+          + "</tr></table>"
+          + (if $grafanaUrl != "" then
+            "<div style=\"margin-top:14px;\"><a href=\"\($grafanaUrl)\" style=\"color:#4f46e5;font-weight:600;text-decoration:none;\">Open Grafana dashboard →</a></div>"
+          else "" end)
+          + "</td></tr></table></td></tr>"
+        else
+          "<tr><td style=\"padding:0 32px 24px;\">"
+          + "<div style=\"font-size:13px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;\">"
+          + "<strong>Observability:</strong> \($observabilitySummary)"
           + "</div></td></tr>"
         end)
 

@@ -11,7 +11,56 @@ if [[ -z "${GIT_TOKEN}" ]]; then
   exit 1
 fi
 
+mirror_remote_for_path() {
+  case "$1" in
+    services/imageUploader) echo "ServEase-Innovations/imageUploader" ;;
+    *) echo "" ;;
+  esac
+}
+
+mirror_push_folder_to_repo() {
+  local SRC="$1"
+  local REPO_PATH="$2"
+  local BRANCH="${RENDER_DEPLOY_BRANCH:-main}"
+  local PUSH_URL="https://x-access-token:${GIT_TOKEN}@github.com/${REPO_PATH}.git"
+  local WORK
+  WORK="$(mktemp -d)"
+
+  if git ls-remote "${PUSH_URL}" "refs/heads/${BRANCH}" >/dev/null 2>&1; then
+    git clone --depth 1 -b "${BRANCH}" "${PUSH_URL}" "${WORK}"
+  else
+    git clone --depth 1 "${PUSH_URL}" "${WORK}"
+  fi
+
+  rsync -a \
+    --exclude node_modules \
+    --exclude .env \
+    --exclude '.env.*' \
+    --exclude .git \
+    "${SRC}/" "${WORK}/"
+
+  cd "${WORK}"
+  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+  git config user.name "github-actions[bot]"
+  git add -A
+
+  if git diff --staged --quiet; then
+    echo "Mirror sync: no file changes for ${REPO_PATH}"
+    return 0
+  fi
+
+  git commit -m "Sync from Serveaso monorepo (${GITHUB_SHA:-manual deploy})"
+  git push "${PUSH_URL}" "HEAD:${BRANCH}"
+  echo "Mirror push verified for github.com/${REPO_PATH}"
+}
+
 if [[ ! -d "${SERVICE_PATH}/.git" ]]; then
+  REMOTE_REPO="$(mirror_remote_for_path "${SERVICE_PATH}")"
+  if [[ -n "${REMOTE_REPO}" ]]; then
+    echo "Mirroring ${SERVICE_PATH} → github.com/${REMOTE_REPO} (no nested .git in CI checkout)"
+    mirror_push_folder_to_repo "${SERVICE_PATH}" "${REMOTE_REPO}"
+    exit 0
+  fi
   echo "Not a git repo: ${SERVICE_PATH} — skip sync"
   exit 0
 fi
