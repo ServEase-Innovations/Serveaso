@@ -34,8 +34,14 @@ for i in "${!NAMES[@]}"; do
   env_label=""
 
   if out="$(curl -sS -m "${TIMEOUT}" -w "\n%{http_code}" "${url}" 2>/dev/null || true)"; then
-    code="$(printf '%s' "${out}" | tail -n1)"
-    body="$(printf '%s' "${out}" | sed '$d' | head -c 400)"
+    if [[ "${out}" == *$'\n'* ]]; then
+      code="${out##*$'\n'}"
+      body="${out%$'\n'*}"
+    else
+      code="${out}"
+      body=""
+    fi
+    body="${body:0:400}"
     env_label="$(printf '%s' "${body}" | grep -Eo 'environment="[^"]+"' | head -1 | cut -d'"' -f2 || true)"
   fi
 

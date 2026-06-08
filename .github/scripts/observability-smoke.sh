@@ -34,8 +34,14 @@ for i in "${!NAMES[@]}"; do
   body_head=""
 
   if out="$(curl -sS -m "${TIMEOUT}" -w "\n%{http_code}" "${url}" 2>/dev/null || true)"; then
-    code="$(printf '%s' "${out}" | tail -n1)"
-    body_head="$(printf '%s' "${out}" | sed '$d' | head -c 200)"
+    if [[ "${out}" == *$'\n'* ]]; then
+      code="${out##*$'\n'}"
+      body="${out%$'\n'*}"
+    else
+      code="${out}"
+      body=""
+    fi
+    body_head="${body:0:200}"
   fi
 
   ok=false
