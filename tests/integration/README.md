@@ -14,6 +14,8 @@ npm run test:integration
 |----------|---------|----------|
 | `INTEGRATION_TEST_CUSTOMER_ID` | `1` | Create engagement, coupons proxy, quote→create flow |
 | `INTEGRATION_TEST_PROVIDER_ID` | `2` | Provider reviews summary |
+| `INTEGRATION_ON_DEMAND_LAT` | `12.90340704464175` | On-demand create / availability probe |
+| `INTEGRATION_ON_DEMAND_LNG` | `77.57114047718073` | On-demand create / availability probe |
 
 Optional:
 

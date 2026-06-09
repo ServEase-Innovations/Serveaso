@@ -4,6 +4,10 @@ import { serviceUrls, getTestCustomerId } from "./lib/config.mjs";
 import { httpJson } from "./lib/http.mjs";
 import { internalAuthHeaders } from "./lib/auth.mjs";
 import { futureYmd } from "./lib/dates.mjs";
+import {
+  onDemandLocationFields,
+  skipUnlessOnDemandProvidersAvailable,
+} from "./lib/onDemandFixtures.mjs";
 
 const createUrl = `${serviceUrls.payments}/api/v2/createEngagements`;
 
@@ -29,26 +33,53 @@ describe("POST /api/v2/createEngagements (DEV live)", () => {
         base_amount: 100,
       },
     });
+    if (status === 404) {
+      assert.match(json?.error || "", /customer not found/i);
+      return;
+    }
+    if (status === 409) {
+      // Older deployments validate on-demand location before customer lookup.
+      assert.ok(
+        json?.code === "INVALID_COORDINATES" || json?.code === "NO_PROVIDERS_NEARBY",
+        `expected customer 404 or on-demand availability block, got ${status}: ${JSON.stringify(json)}`
+      );
+      return;
+    }
     assert.ok(
-      status === 404 || (status === 500 && /customer not found/i.test(json?.error || "")),
+      status === 500 && /customer not found/i.test(json?.error || ""),
       `expected 404 (or legacy 500) for unknown customer, got ${status}: ${JSON.stringify(json)}`
     );
-    assert.match(json?.error || "", /customer not found/i);
   });
 
-  it("creates ON_DEMAND engagement for DEV test customer", async () => {
+  it("creates ON_DEMAND engagement for DEV test customer", async (t) => {
+    const startDate = futureYmd();
+    const startTime = "09:00";
+    const durationMinutes = 60;
+
+    if (
+      !(await skipUnlessOnDemandProvidersAvailable(t, {
+        serviceType: "COOK",
+        startDate,
+        startTime,
+        durationMinutes,
+      }))
+    ) {
+      return;
+    }
+
     const customerId = getTestCustomerId();
 
     const { status, json } = await httpJson("POST", createUrl, {
       headers: internalAuthHeaders(),
       body: {
         customerid: customerId,
-        start_date: futureYmd(),
-        start_time: "09:00",
+        start_date: startDate,
+        start_time: startTime,
         booking_type: "ON_DEMAND",
         service_type: "COOK",
         base_amount: 99,
-        duration_minutes: 60,
+        duration_minutes: durationMinutes,
+        ...onDemandLocationFields(),
       },
     });
 

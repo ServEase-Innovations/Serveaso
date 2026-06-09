@@ -4,6 +4,10 @@ import { serviceUrls, getTestCustomerId } from "./lib/config.mjs";
 import { httpJson } from "./lib/http.mjs";
 import { internalAuthHeaders } from "./lib/auth.mjs";
 import { futureYmd } from "./lib/dates.mjs";
+import {
+  onDemandLocationFields,
+  skipUnlessOnDemandProvidersAvailable,
+} from "./lib/onDemandFixtures.mjs";
 
 /**
  * End-to-end booking path: quote → (optional) create engagement.
@@ -12,6 +16,20 @@ import { futureYmd } from "./lib/dates.mjs";
 describe("Booking flow — quote then create (payments)", () => {
   it("on-demand COOK quote total matches create-engagement base_amount band", async (t) => {
     const startDate = futureYmd();
+    const startTime = "10:00";
+    const durationMinutes = 120;
+
+    if (
+      !(await skipUnlessOnDemandProvidersAvailable(t, {
+        serviceType: "COOK",
+        startDate,
+        startTime,
+        durationMinutes,
+      }))
+    ) {
+      return;
+    }
+
     const quoteRes = await httpJson("POST", `${serviceUrls.payments}/api/v2/pricing/quote`, {
       body: {
         serviceType: "COOK",
@@ -30,11 +48,12 @@ describe("Booking flow — quote then create (payments)", () => {
       body: {
         customerid: getTestCustomerId(),
         start_date: startDate,
-        start_time: "10:00",
+        start_time: startTime,
         booking_type: "ON_DEMAND",
         service_type: "COOK",
         base_amount: quotedTotal,
-        duration_minutes: 120,
+        duration_minutes: durationMinutes,
+        ...onDemandLocationFields(),
       },
     });
 
