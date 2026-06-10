@@ -79,4 +79,7 @@ if (!isLocalPg) {
 
 run("db:migrate", ["run", "db:migrate"]);
 
+run("prisma:generate (coupons)", ["run", "prisma:generate", "--workspace=coupons"]);
+run("prisma:generate (reviews)", ["run", "prisma:generate", "--workspace=reviews"]);
+
 console.log("[predev] Database migrations up to date");
