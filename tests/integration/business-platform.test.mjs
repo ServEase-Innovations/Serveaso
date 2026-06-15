@@ -4,7 +4,7 @@ import { serviceUrls } from "./lib/config.mjs";
 import { httpJson } from "./lib/http.mjs";
 
 describe("Platform & customer identity (utils)", () => {
-  it("GET /api/platform-settings/public returns cancellation policy", async () => {
+  it("GET /api/platform-settings/public returns cancellation policy and footer", async () => {
     const { status, json } = await httpJson(
       "GET",
       `${serviceUrls.utils}/api/platform-settings/public`
@@ -17,6 +17,12 @@ describe("Platform & customer identity (utils)", () => {
         json.settings.cancellation.onDemandMinutesBeforeStart != null,
       "expected onDemandMinutesBeforeStart"
     );
+    assert.ok(json?.settings?.footer, "expected footer in public settings");
+    assert.equal(typeof json.settings.footer.helplinePhone, "string");
+    assert.equal(typeof json.settings.footer.joinUsPhone, "string");
+    assert.ok(json.settings.footer.social, "expected footer.social");
+    assert.equal(typeof json.settings.footer.social.x, "string");
+    assert.equal(typeof json.settings.footer.social.instagram, "string");
   });
 
   it("GET /customer/check-email responds for probe email", async () => {
