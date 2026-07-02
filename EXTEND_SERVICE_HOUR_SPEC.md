@@ -266,7 +266,7 @@ async function checkExtensionAvailability(engagementId) {
 }
 ```
 
-#### Extension Logic
+#### Extension Logic (✅ As Implemented)
 ```javascript
 async function extendBooking(engagementId, extensionData) {
   const engagement = await getEngagement(engagementId);
@@ -286,30 +286,31 @@ async function extendBooking(engagementId, extensionData) {
     extensionData.additionalAmount
   );
   
-  // Update engagement
+  // Update engagement (only existing columns)
   await updateEngagement(engagementId, {
-    end_time: extensionData.newEndTime,
     end_epoch: dateToEpoch(extensionData.newEndTime),
-    total_amount: engagement.total_amount + extensionData.additionalAmount,
-    extension_count: (engagement.extension_count || 0) + 1,
-    last_extended_at: new Date()
+    base_amount: engagement.base_amount + extensionData.additionalAmount
   });
   
-  // Log extension event
+  // Log extension event (provides audit trail)
   await logEngagementEvent(engagementId, {
     event_type: 'BOOKING_EXTENDED',
     metadata: {
       extension_hours: extensionData.extensionHours,
       additional_amount: extensionData.additionalAmount,
-      new_end_time: extensionData.newEndTime
+      new_end_time: extensionData.newEndTime,
+      old_end_epoch: engagement.end_epoch
     }
   });
   
-  // Notify provider
-  await notifyProvider(engagement.serviceProviderId, {
+  // Notify provider via in-app notification
+  await sendInAppNotification({
+    userId: engagement.serviceProviderId,
     type: 'BOOKING_EXTENDED',
     engagementId,
-    extensionHours: extensionData.extensionHours
+    metadata: {
+      extensionHours: extensionData.extensionHours
+    }
   });
   
   return { engagement, payment };
@@ -318,23 +319,28 @@ async function extendBooking(engagementId, extensionData) {
 
 ## Database Schema Changes
 
-### engagements table
+### ✅ Implemented
+**No schema changes required** - Feature uses existing columns:
+- `end_epoch` - Updated with new end time
+- `base_amount` - Updated with additional cost
+
+### 📋 Not Implemented (Optional Enhancement)
+The following columns were designed but not implemented. The feature works without them:
+
 ```sql
+-- Future enhancement: Track extension history
 ALTER TABLE engagements
 ADD COLUMN extension_count INT DEFAULT 0,
 ADD COLUMN last_extended_at TIMESTAMP,
 ADD COLUMN original_end_epoch INT;
 ```
 
+**Note**: Extension tracking currently relies on engagement_events table for audit trail.
+
 ### engagement_events table
-```sql
--- New event type: BOOKING_EXTENDED
--- Metadata should include:
--- - extension_hours
--- - additional_amount
--- - new_end_time
--- - old_end_time
-```
+**✅ Implemented** - Extension events are logged with:
+- `event_type`: 'BOOKING_EXTENDED'
+- `metadata`: Contains extension details (hours, amount, new end time)
 
 ## Testing Checklist
 
