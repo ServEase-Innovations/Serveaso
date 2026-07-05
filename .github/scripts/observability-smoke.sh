@@ -7,7 +7,7 @@ TIMEOUT="${OBSERVABILITY_PROBE_TIMEOUT:-20}"
 GRAFANA_DASHBOARD_URL="${GRAFANA_DASHBOARD_URL:-}"
 
 declare -a NAMES=(
-  payments providers utils coupons preferences reviews tickets chat image-uploader
+  payments providers utils coupons preferences reviews tickets chat image-uploader tracking
 )
 declare -a HOSTS=(
   payments-vyqp.onrender.com
@@ -19,6 +19,7 @@ declare -a HOSTS=(
   tickets-3gc8.onrender.com
   chat-b3wl.onrender.com
   imageuploader-5njj.onrender.com
+  notifications-mjdp.onrender.com
 )
 
 up=0

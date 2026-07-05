@@ -13,6 +13,7 @@ const metricTargets = [
   ["tickets", serviceUrls.tickets],
   ["chat", serviceUrls.chat],
   ["image-uploader", serviceUrls.imageUploader],
+  ["tracking", serviceUrls.tracking],
 ];
 
 async function fetchMetrics(baseUrl) {

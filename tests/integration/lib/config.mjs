@@ -48,6 +48,11 @@ export const serviceUrls = {
     process.env.REACT_APP_IMAGE_UPLOADER_URL ||
     "https://imageuploader-5njj.onrender.com"
   ).replace(/\/$/, ""),
+  tracking: (
+    process.env.INTEGRATION_TRACKING_URL ||
+    process.env.REACT_APP_TRACKING_URL ||
+    "https://notifications-mjdp.onrender.com"
+  ).replace(/\/$/, ""),
 };
 
 /** DEV smoke fixtures — override via env for other stacks. */
