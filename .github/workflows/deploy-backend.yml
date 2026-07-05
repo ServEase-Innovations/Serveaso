@@ -31,6 +31,7 @@ on:
           - tickets
           - image-uploader
           - chat
+          - tracking
       wait_for_render:
         description: Dev only — poll Render until deploy finishes and print logs
         required: false
@@ -164,6 +165,7 @@ jobs:
           RENDER_HOOK_TICKETS: ${{ secrets.RENDER_DEPLOY_HOOK_TICKETS }}
           RENDER_HOOK_IMAGE_UPLOADER: ${{ secrets.RENDER_DEPLOY_HOOK_IMAGE_UPLOADER }}
           RENDER_HOOK_CHAT: ${{ secrets.RENDER_DEPLOY_HOOK_CHAT }}
+          RENDER_HOOK_TRACKING: ${{ secrets.RENDER_DEPLOY_HOOK_TRACKING }}
           RENDER_SVC_ID_PAYMENTS: ${{ secrets.RENDER_SERVICE_ID_PAYMENTS }}
           RENDER_SVC_ID_PROVIDERS: ${{ secrets.RENDER_SERVICE_ID_PROVIDERS }}
           RENDER_SVC_ID_COUPONS: ${{ secrets.RENDER_SERVICE_ID_COUPONS }}
@@ -173,6 +175,7 @@ jobs:
           RENDER_SVC_ID_TICKETS: ${{ secrets.RENDER_SERVICE_ID_TICKETS }}
           RENDER_SVC_ID_IMAGE_UPLOADER: ${{ secrets.RENDER_SERVICE_ID_IMAGE_UPLOADER }}
           RENDER_SVC_ID_CHAT: ${{ secrets.RENDER_SERVICE_ID_CHAT }}
+          RENDER_SVC_ID_TRACKING: ${{ secrets.RENDER_SERVICE_ID_TRACKING }}
         run: |
           case "${{ matrix.service }}" in
             payments)       HOOK="${RENDER_HOOK_PAYMENTS}"; SVC_ID="${RENDER_SVC_ID_PAYMENTS}" ;;
@@ -184,6 +187,7 @@ jobs:
             tickets)        HOOK="${RENDER_HOOK_TICKETS}"; SVC_ID="${RENDER_SVC_ID_TICKETS}" ;;
             image-uploader) HOOK="${RENDER_HOOK_IMAGE_UPLOADER}"; SVC_ID="${RENDER_SVC_ID_IMAGE_UPLOADER}" ;;
             chat)           HOOK="${RENDER_HOOK_CHAT}"; SVC_ID="${RENDER_SVC_ID_CHAT}" ;;
+            tracking)       HOOK="${RENDER_HOOK_TRACKING}"; SVC_ID="${RENDER_SVC_ID_TRACKING}" ;;
             *) echo "Unknown service"; exit 1 ;;
           esac
           if [[ -z "${HOOK}" ]]; then
@@ -298,6 +302,9 @@ jobs:
             chat)
               printf '%s' "${{ secrets.PROD_ENV_CHAT }}" > /tmp/service.env
               ;;
+            tracking)
+              printf '%s' "${{ secrets.PROD_ENV_TRACKING }}" > /tmp/service.env
+              ;;
           esac
           if [[ ! -s /tmp/service.env ]]; then
             rm -f /tmp/service.env
@@ -317,6 +324,7 @@ jobs:
           EC2_DEPLOY_PATH_TICKETS: ${{ secrets.EC2_DEPLOY_PATH_TICKETS }}
           EC2_DEPLOY_PATH_IMAGE_UPLOADER: ${{ secrets.EC2_DEPLOY_PATH_IMAGE_UPLOADER }}
           EC2_DEPLOY_PATH_CHAT: ${{ secrets.EC2_DEPLOY_PATH_CHAT }}
+          EC2_DEPLOY_PATH_TRACKING: ${{ secrets.EC2_DEPLOY_PATH_TRACKING }}
         run: |
           default_path() {
             case "${{ matrix.service }}" in
@@ -329,6 +337,7 @@ jobs:
               tickets)        echo "/home/ubuntu/tickets" ;;
               image-uploader) echo "/home/ubuntu/image-uploader" ;;
               chat)           echo "/home/ubuntu/chat" ;;
+              tracking)       echo "/home/ubuntu/tracking" ;;
             esac
           }
           case "${{ matrix.service }}" in
@@ -341,6 +350,7 @@ jobs:
             tickets)        PATH="${EC2_DEPLOY_PATH_TICKETS:-$(default_path)}" ;;
             image-uploader) PATH="${EC2_DEPLOY_PATH_IMAGE_UPLOADER:-$(default_path)}" ;;
             chat)           PATH="${EC2_DEPLOY_PATH_CHAT:-$(default_path)}" ;;
+            tracking)       PATH="${EC2_DEPLOY_PATH_TRACKING:-$(default_path)}" ;;
           esac
           echo "path=${PATH}" >> "$GITHUB_OUTPUT"
 
