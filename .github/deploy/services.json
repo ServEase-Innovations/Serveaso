@@ -79,14 +79,5 @@
     "install": "npm ci --legacy-peer-deps",
     "render_secret": "RENDER_DEPLOY_HOOK_CHAT",
     "render_service_id_secret": "RENDER_SERVICE_ID_CHAT"
-  },
-  "tracking": {
-    "label": "Tracking",
-    "path": "services/notifications/tracking",
-    "ec2_app": "tracking",
-    "pm2": true,
-    "install": "npm ci --omit=dev",
-    "render_secret": "RENDER_DEPLOY_HOOK_TRACKING",
-    "render_service_id_secret": "RENDER_SERVICE_ID_TRACKING"
   }
 }
