@@ -3,7 +3,15 @@
   "private": true,
   "description": "Serveaso monorepo — backend microservices (services/*) + React UI (apps/servase-ui)",
   "workspaces": [
-    "services/*"
+    "services/chat",
+    "services/coupons",
+    "services/imageUploader",
+    "services/payments",
+    "services/preferences",
+    "services/providers",
+    "services/reviews",
+    "services/tickets",
+    "services/utils"
   ],
   "scripts": {
     "db:baseline": "npm run baseline --prefix database",
