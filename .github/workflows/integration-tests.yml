@@ -80,6 +80,7 @@ jobs:
           INTEGRATION_INTERNAL_SECRET: ${{ secrets.INTEGRATION_INTERNAL_SECRET }}
           INTEGRATION_TEST_CUSTOMER_ID: ${{ secrets.INTEGRATION_TEST_CUSTOMER_ID }}
           INTEGRATION_TEST_PROVIDER_ID: ${{ secrets.INTEGRATION_TEST_PROVIDER_ID }}
+          POSTGRES_DB: serveaso
         run: |
           echo "### Integration tests (DEV)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Trigger: **${{ github.event_name }}**" >> "$GITHUB_STEP_SUMMARY"
