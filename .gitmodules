@@ -34,3 +34,7 @@
 [submodule "database"]
 	path = database
 	url = https://github.com/ServEase-Innovations/DB_Migrations.git
+[submodule "apps/servease-website"]
+	path = apps/servease-website
+	url = https://github.com/ServEase-Innovations/ServEaso_websit.git
+	branch = uddate/new_feel
