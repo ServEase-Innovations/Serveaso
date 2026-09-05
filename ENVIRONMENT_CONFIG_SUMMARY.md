@@ -81,6 +81,40 @@ npm run ios --configuration Release
 npm run android --variant=release
 ```
 
+## Unified Environment Variable Names
+
+Both web and mobile apps now use **identical environment variable names** for consistency:
+
+| Service | Environment Variable |
+|---------|---------------------|
+| Payments | `REACT_APP_PAYMENTS_URL` |
+| Providers | `REACT_APP_PROVIDER_URL` |
+| Preferences | `REACT_APP_PREFERENCES_URL` |
+| Utils | `REACT_APP_UTILS_URL` |
+| Utils WebSocket | `REACT_APP_UTILS_WS_URL` |
+| Reviews | `REACT_APP_REVIEWS_URL` |
+| Tickets | `REACT_APP_TICKETS_URL` |
+| Coupons | `REACT_APP_COUPONS_URL` |
+| Chat | `REACT_APP_CHAT_URL` |
+| Image Uploader | `REACT_APP_IMAGE_UPLOADER_URL` |
+| Tracking | `REACT_APP_TRACKING_API_URL` |
+| Tracking WebSocket | `REACT_APP_TRACKING_WS_URL` |
+
+**Secrets:**
+- `REACT_APP_GOOGLE_MAPS_API_KEY`
+- `REACT_APP_RAZORPAY_KEY`
+- `REACT_APP_ADMIN_PUSH_SECRET`
+- `REACT_APP_ADMIN_TICKET_SECRET`
+- `REACT_APP_ADMIN_EMAIL`
+- `REACT_APP_CHAT_ADMIN_ID`
+
+### Benefits of Unified Naming
+
+✅ **Same .env files** - Can share between web and mobile projects  
+✅ **Easier maintenance** - One naming convention to remember  
+✅ **Copy-paste friendly** - Environment variables work across both apps  
+✅ **Team consistency** - Developers know the same names work everywhere
+
 ## Endpoint Mappings
 
 | Service | Development | Production |
