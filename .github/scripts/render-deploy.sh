@@ -13,6 +13,30 @@ GIT_TOKEN="${GH_PAT:-${GITHUB_TOKEN:-}}"
 COMMIT_SHA=""
 REMOTE_OK=false
 
+# Debug: Show hook info (mask the key)
+HOOK_DEBUG=$(echo "${HOOK_URL}" | sed -E 's/(key=)[^&]*/\1***MASKED***/g')
+echo "🔍 Debug: Deploy Hook URL: ${HOOK_DEBUG}"
+echo "🔍 Debug: Service Path: ${SERVICE_PATH:-<not set>}"
+echo "🔍 Debug: Hook URL length: ${#HOOK_URL} characters"
+
+# Check for common issues
+if [[ "${HOOK_URL}" =~ [[:space:]]$ ]]; then
+  echo "::warning::⚠️  Deploy hook has trailing whitespace - trimming"
+  HOOK_URL="${HOOK_URL%"${HOOK_URL##*[![:space:]]}"}"
+fi
+if [[ "${HOOK_URL}" =~ ^[[:space:]] ]]; then
+  echo "::warning::⚠️  Deploy hook has leading whitespace - trimming"
+  HOOK_URL="${HOOK_URL#"${HOOK_URL%%[![:space:]]*}"}"
+fi
+
+# Validate URL format
+if [[ ! "${HOOK_URL}" =~ ^https:// ]]; then
+  echo "::error::❌ Deploy hook does not start with 'https://'"
+  echo "::error::Got: ${HOOK_URL:0:50}..."
+  echo "::error::Expected format: https://api.render.com/deploy/srv-xxxxx?key=yyyyy"
+  exit 1
+fi
+
 resolve_remote_url() {
   local origin repo_path
   origin="$(git -C "${SERVICE_PATH}" remote get-url origin)"
@@ -55,10 +79,28 @@ trigger_via_hook() {
     echo "Deploy hook for latest commit on Render branch (no ref)"
   fi
 
+  echo "🔍 Debug: Attempting to call Render API..."
+  echo "🔍 Debug: Host check: $(echo "${url}" | sed -E 's|^https?://([^/?]+).*|\1|')"
+  
   local http_code
   for method in POST GET; do
-    http_code="$(curl -sS -o /tmp/render-deploy-response.txt -w "%{http_code}" -X "${method}" "${url}")"
-    echo "${method} ${url%%\?*} → HTTP ${http_code}"
+    echo "🔍 Trying ${method} request..."
+    
+    # More verbose curl with better error output
+    set +e
+    http_code=$(curl -sS -v -o /tmp/render-deploy-response.txt -w "%{http_code}" -X "${method}" "${url}" 2>&1 | tee /tmp/curl-debug.txt | tail -1)
+    curl_exit=$?
+    set -e
+    
+    echo "${method} ${url%%\?*} → HTTP ${http_code} (curl exit code: ${curl_exit})"
+    
+    # Show curl debug info on failure
+    if [[ ${curl_exit} -ne 0 ]]; then
+      echo "::error::❌ curl failed with exit code ${curl_exit}"
+      echo "🔍 Debug: curl error details:"
+      cat /tmp/curl-debug.txt 2>/dev/null | grep -E "(Could not resolve|Connection|timeout|SSL)" || true
+    fi
+    
     cat /tmp/render-deploy-response.txt || true
     echo ""
     if [[ "${http_code}" -ge 200 && "${http_code}" -lt 300 ]]; then
@@ -109,7 +151,9 @@ fi
 if [[ -z "${DEPLOY_ID}" ]]; then
   echo "Triggering via deploy hook…"
   if ! trigger_via_hook; then
-    echo "::error::Render deploy hook failed. Check RENDER_DEPLOY_HOOK_REVIEWS secret matches Render → reviews → Deploy Hook."
+    echo "::error::Render deploy hook failed. Check that the deploy hook URL is correct and matches the Render service."
+    echo "::error::Expected URL format: https://api.render.com/deploy/srv-xxxxx?key=xxxxx"
+    echo "::error::Verify RENDER_DEPLOY_HOOK_* secret in GitHub Actions matches Render dashboard → Your Service → Deploy Hook"
     exit 1
   fi
   DEPLOY_ID="$(jq -r '.deploy.id // empty' /tmp/render-deploy-response.txt 2>/dev/null || true)"

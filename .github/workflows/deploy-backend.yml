@@ -190,15 +190,47 @@ jobs:
             tracking)       HOOK="${RENDER_HOOK_TRACKING}"; SVC_ID="${RENDER_SVC_ID_TRACKING}" ;;
             *) echo "Unknown service"; exit 1 ;;
           esac
+          
+          # Debug: Check if secret is set
+          echo "🔍 Debug Info for ${{ matrix.service }}:"
           if [[ -z "${HOOK}" ]]; then
-            echo "::error::Missing Render deploy hook secret for ${{ matrix.service }}. See docs/DEPLOYMENT.md"
+            echo "::error::❌ RENDER_DEPLOY_HOOK_${{ matrix.service }} is NOT SET or EMPTY"
+            echo "::error::Please set this secret in GitHub: Settings → Secrets → Actions → RENDER_DEPLOY_HOOK_$(echo '${{ matrix.service }}' | tr '[:lower:]-' '[:upper:]_')"
             exit 1
           fi
+          
+          # Debug: Show hook format (mask the key part)
+          HOOK_DEBUG=$(echo "${HOOK}" | sed -E 's/(key=)[^&]*/\1***MASKED***/g')
+          echo "Hook URL format: ${HOOK_DEBUG}"
+          echo "Hook length: ${#HOOK} characters"
+          
+          # Check for common issues
+          if [[ "${HOOK}" =~ [[:space:]]$ ]]; then
+            echo "::warning::⚠️  Deploy hook has trailing whitespace"
+          fi
+          if [[ "${HOOK}" =~ ^[[:space:]] ]]; then
+            echo "::warning::⚠️  Deploy hook has leading whitespace"
+          fi
+          if [[ ! "${HOOK}" =~ ^https:// ]]; then
+            echo "::error::❌ Deploy hook does not start with 'https://'"
+            echo "::error::Expected format: https://api.render.com/deploy/srv-xxxxx?key=yyyyy"
+            exit 1
+          fi
+          if [[ ! "${HOOK}" =~ api\.render\.com/deploy/ ]]; then
+            echo "::error::❌ Deploy hook does not contain 'api.render.com/deploy/'"
+            echo "::error::Expected format: https://api.render.com/deploy/srv-xxxxx?key=yyyyy"
+            exit 1
+          fi
+          
           # Deploy hook URL embeds the service id: https://api.render.com/deploy/srv-XXXX?key=…
           HOOK_SVC_ID="$(printf '%s' "${HOOK}" | sed -E 's|.*/(srv-[^/?]+).*|\1|')"
           if [[ "${HOOK_SVC_ID}" == "${HOOK}" ]]; then
             HOOK_SVC_ID=""
+            echo "::warning::Could not extract service ID from deploy hook URL"
+          else
+            echo "Extracted Service ID from hook: ${HOOK_SVC_ID}"
           fi
+          
           if [[ -n "${HOOK_SVC_ID}" ]]; then
             if [[ -n "${SVC_ID}" && "${SVC_ID}" != "${HOOK_SVC_ID}" ]]; then
               echo "::warning::RENDER_SERVICE_ID_${{ matrix.service }} (${SVC_ID}) does not match deploy hook (${HOOK_SVC_ID}) — using hook value."
@@ -208,7 +240,12 @@ jobs:
             echo "::error::Set RENDER_SERVICE_ID_${{ matrix.service }} to srv-… from Render dashboard, or fix deploy hook URL."
             exit 1
           fi
+          
+          echo "Final Service ID: ${SVC_ID}"
+          
           SERVICE_PATH="$(jq -r '.path' service.json)"
+          echo "Service Path: ${SERVICE_PATH}"
+          
           {
             echo "RENDER_HOOK<<EOF"
             printf '%s\n' "${HOOK}"
@@ -216,6 +253,8 @@ jobs:
             echo "RENDER_SVC_ID=${SVC_ID}"
             echo "RENDER_SERVICE_PATH=${SERVICE_PATH}"
           } >> "$GITHUB_ENV"
+          
+          echo "✅ Configuration validated successfully"
 
       - name: Render — push service repo to GitHub (dev)
         if: inputs.environment == 'dev'
